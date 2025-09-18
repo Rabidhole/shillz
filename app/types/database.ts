@@ -1,0 +1,71 @@
+export type UserTier = 'degen' | 'chad' | 'mofo' | 'legend';
+export type TimeWindow = 'hour' | 'day';
+
+export interface User {
+    id: string;
+    telegram_username: string;
+    wallet_address: string | null;
+    tier: UserTier;
+    total_shills: number; // Now represents 24-hour shills
+    created_at: string;
+}
+
+export interface Token {
+    id: string;
+    name: string;
+    contract_address: string;
+    chain: string;
+    description: string | null;
+    image_url: string | null;
+    total_shills: number; // Now represents 24-hour shills
+    created_at: string;
+}
+
+export interface Shill {
+    id: string;
+    user_id: string;
+    token_id: string;
+    created_at: string;
+}
+
+export interface LeaderboardSnapshot {
+    id: string;
+    token_id: string;
+    time_window: TimeWindow;
+    position: number;
+    shill_count: number;
+    shill_change: number;
+    snapshot_time: string;
+}
+
+export interface HotToken extends Token {
+    hot_shills: number;
+    hot_rank: number;
+}
+
+export interface Database {
+    public: {
+        Tables: {
+            users_new: {
+                Row: User;
+                Insert: Omit<User, 'id' | 'created_at' | 'total_shills' | 'tier'>;
+                Update: Partial<Omit<User, 'id' | 'created_at'>>;
+            };
+            tokens_new: {
+                Row: Token;
+                Insert: Omit<Token, 'id' | 'created_at' | 'total_shills'>;
+                Update: Partial<Omit<Token, 'id' | 'created_at'>>;
+            };
+            shills_new: {
+                Row: Shill;
+                Insert: Omit<Shill, 'id' | 'created_at'>;
+                Update: Partial<Omit<Shill, 'id' | 'created_at'>>;
+            };
+            leaderboard_snapshots_new: {
+                Row: LeaderboardSnapshot;
+                Insert: Omit<LeaderboardSnapshot, 'id' | 'snapshot_time'>;
+                Update: Partial<Omit<LeaderboardSnapshot, 'id' | 'snapshot_time'>>;
+            };
+        };
+    };
+}
