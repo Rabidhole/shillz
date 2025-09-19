@@ -28,6 +28,7 @@ const PRICING_TIERS = isTestMode ? [
 export function AdBookingCalendar() {
   const [selectedDates, setSelectedDates] = useState<string[]>([])
   const [availableSlots, setAvailableSlots] = useState<AdSlot[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [showBookingForm, setShowBookingForm] = useState(false)
   const [formData, setFormData] = useState({
     title: '',
