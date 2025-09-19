@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { useReownWallet } from '../hooks/useReownWallet'
-import { cn } from '../../lib/utils'
 
 const ADMIN_WALLET = '0x18521c6f092B2261f7E2771A4D02c3cC7010DDE3'
 
@@ -35,7 +34,7 @@ export default function AdminPage() {
     if (isAdmin) {
       fetchPendingAds()
     }
-  }, [isAdmin])
+  }, [isAdmin, fetchPendingAds])
 
   const fetchPendingAds = async () => {
     // Only fetch if user is admin

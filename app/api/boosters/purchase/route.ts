@@ -56,8 +56,8 @@ export async function POST(request: Request) {
     console.log('Received booster purchase request')
     const requestData = await request.json() as BoosterPurchaseRequest
     console.log('Request data:', requestData)
-    const { id: boosterId, paymentMethod, walletAddress, testMode } = requestData
-    console.log('Parsed request:', { boosterId, paymentMethod, walletAddress, testMode })
+    const { id: boosterId, walletAddress, testMode } = requestData
+    console.log('Parsed request:', { boosterId, walletAddress, testMode })
 
     // In test mode, create a fake transaction
     const tonPayload = testMode ? {
