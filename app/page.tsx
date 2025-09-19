@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { SearchBar } from './components/SearchBar'
 import { Leaderboard } from './components/Leaderboard'
 import { GlobalBoosterStatus } from './components/GlobalBoosterStatus'
+import { AdBanner } from './components/AdBanner'
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState('')
@@ -11,6 +12,9 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-gray-900 to-black">
       <div className="container mx-auto px-4 py-6">
+        {/* Ad Banner */}
+        <AdBanner />
+        
         {/* Compact Header */}
         <div className="text-center mb-6">
           <GlobalBoosterStatus />
