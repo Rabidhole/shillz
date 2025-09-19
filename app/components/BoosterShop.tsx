@@ -7,7 +7,11 @@ import { useTonPrice } from '../hooks/useTonPrice'
 
 interface BoosterShopProps {
   userId?: string
-  telegram?: any // Telegram WebApp object
+  telegram?: {
+    ton?: {
+      sendPayment: (params: { amount: number }) => Promise<{ ok: boolean; transaction_id: string }>
+    }
+  }
 }
 
 const BOOSTERS = [
@@ -33,7 +37,7 @@ const BOOSTERS = [
 
 export function BoosterShop({ userId = 'anonymous', telegram }: BoosterShopProps) {
   const { activeBoosters, totalMultiplier, nextExpiring } = useUserBoosters(userId)
-  const { convertUsdToTon, formatUsdWithTon, price: tonPrice, isLoading: isPriceLoading } = useTonPrice()
+  const { formatUsdWithTon, price: tonPrice, isLoading: isPriceLoading } = useTonPrice()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 

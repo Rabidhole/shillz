@@ -12,11 +12,6 @@ interface EthereumProvider {
   on: (event: string, handler: (params: unknown) => void) => void
 }
 
-interface WalletInfo {
-  name: string
-  provider: EthereumProvider
-}
-
 interface WalletState {
   isConnected: boolean
   address: string | null

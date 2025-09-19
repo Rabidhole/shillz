@@ -59,7 +59,7 @@ export function useLeaderboard(search: string = '', limit: number = 50) {
   // Initial load and search changes
   useEffect(() => {
     fetchLeaderboard(0, search)
-  }, [search, limit])
+  }, [search, limit, fetchLeaderboard])
 
   // Load more function
   const loadMore = () => {
