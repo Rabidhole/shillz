@@ -199,7 +199,7 @@ export function BoosterShop({ userId = 'anonymous' }: BoosterShopProps) {
                 {booster.multiplier === 4 && <li>✓ Maximum power</li>}
               </ul>
               <Button
-                onClick={() => handlePurchase(booster.id, booster.priceUsd)}
+                onClick={() => handlePurchase(booster.id)}
                 disabled={isLoading || hasActiveBooster}
                 className={`w-full bg-${booster.color}-600 hover:bg-${booster.color}-700 disabled:opacity-50`}
               >
