@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import { useRealtimeToken } from '../hooks/useRealtimeToken'
 import { useTokenRank } from '../hooks/useTokenRank'
+import { useReownWallet } from '../hooks/useReownWallet'
 import { TokenShillButton } from './TokenShillButton'
 import { cn } from '../../lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -15,6 +16,7 @@ interface TokenCardProps {
 export function TokenCard({ tokenId, className }: TokenCardProps) {
   const { token, isLoading, error } = useRealtimeToken(tokenId)
   const { rankData, isLoading: rankLoading } = useTokenRank(tokenId)
+  const { address } = useReownWallet()
 
   if (isLoading) {
     return (
@@ -100,6 +102,7 @@ export function TokenCard({ tokenId, className }: TokenCardProps) {
           <TokenShillButton 
             tokenId={token.id} 
             currentShills={token.total_shills || 0}
+            userId={address || 'anonymous'}
           />
         </div>
 

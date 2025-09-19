@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { useUserBoosters } from '../hooks/useUserBoosters'
 import { BoosterStatus } from './BoosterStatus'
+import { ActiveBoosterDisplay } from './ActiveBoosterDisplay'
 import { cn } from '@/lib/utils'
 
 interface TokenShillButtonProps {
@@ -125,10 +126,8 @@ export function TokenShillButton({ tokenId, currentShills, userId = 'anonymous',
 
   return (
     <div className="relative flex flex-col items-center justify-center gap-4">
-      {/* Booster Status */}
-      {hasActiveBoosters && (
-        <BoosterStatus userId={userId} className="mb-2" />
-      )}
+      {/* Active Booster Display */}
+      <ActiveBoosterDisplay userId={userId} className="w-full max-w-md mb-4" />
 
       {/* Instructions */}
       <div className="text-center">

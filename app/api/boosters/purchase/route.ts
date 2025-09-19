@@ -99,6 +99,14 @@ export async function POST(request: Request) {
       )
     }
 
+    // First, deactivate any expired boosters for this user
+    await supabaseAdmin
+      .from('user_boosters')
+      .update({ is_active: false })
+      .eq('user_id', actualUserId)
+      .eq('is_active', true)
+      .lt('expires_at', new Date().toISOString())
+
     // Check if user already has an active booster
     const { data: activeBooster, error: activeError } = await supabaseAdmin
       .from('user_boosters')
@@ -163,6 +171,7 @@ export async function POST(request: Request) {
         booster_pack_id: boosterPack.id,
         expires_at: expiresAt.toISOString(),
         is_active: true,
+        purchased_at: new Date().toISOString(),
         transaction_hash: tonPayload!.transaction_id
       })
       .select()
@@ -170,6 +179,15 @@ export async function POST(request: Request) {
 
     if (createError) {
       console.error('Error creating user booster:', createError)
+      
+      // Handle specific constraint violations
+      if (createError.code === '23505' && createError.message.includes('idx_one_active_booster_per_user')) {
+        return NextResponse.json(
+          { error: 'You already have an active booster. Please wait for it to expire before purchasing another one.' },
+          { status: 400 }
+        )
+      }
+      
       return NextResponse.json(
         { error: createError.message },
         { status: 400 }

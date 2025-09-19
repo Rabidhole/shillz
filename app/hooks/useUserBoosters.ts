@@ -12,15 +12,30 @@ export function useUserBoosters(userId: string) {
 
     async function fetchActiveBoosters() {
       try {
+        console.log('Fetching boosters for user:', userId)
         const response = await fetch(`/api/users/${userId}/boosters`)
         
+        console.log('Boosters API response:', {
+          status: response.status,
+          ok: response.ok,
+          url: response.url
+        })
+        
         if (!response.ok) {
-          throw new Error('Failed to fetch boosters')
+          const errorText = await response.text()
+          console.error('Boosters API error:', errorText)
+          throw new Error(`Failed to fetch boosters: ${response.status} ${errorText}`)
         }
 
         const data = await response.json()
+        console.log('Boosters data received:', data)
         
         if (mounted) {
+          console.log('Setting boosters state:', {
+            boosters: data.boosters,
+            totalMultiplier: data.totalMultiplier,
+            userId
+          })
           setActiveBoosters(data.boosters || [])
           setTotalMultiplier(data.totalMultiplier || 1)
           setError(null)

@@ -18,43 +18,92 @@ const supabaseAdmin = createClient(
 
 export async function POST(request: Request) {
   try {
-    const { tokenId } = await request.json()
-    console.log('Received tokenId:', tokenId)
+    const { tokenId, userId, multiplier = 1 } = await request.json()
+    console.log('Received shill request:', { tokenId, userId, multiplier })
 
-    // First, create anonymous user
-    const { data: user, error: userError } = await supabaseAdmin
-      .from('users_new')
-      .upsert({
-        telegram_username: `anon_${Date.now()}`,
-        tier: 'degen',
-        total_shills: 0
-      }, {
-        onConflict: 'telegram_username',
-        ignoreDuplicates: false
-      })
-      .select()
-      .single()
+    // Get or create user based on userId
+    let user
+    if (userId && userId !== 'anonymous') {
+      // Try to find existing user first
+      const { data: existingUser, error: findError } = await supabaseAdmin
+        .from('users_new')
+        .select('*')
+        .eq('telegram_username', userId)
+        .single()
 
-    if (userError) {
-      console.error('Error creating/getting user:', userError)
-      return NextResponse.json(
-        { error: userError.message }, 
-        { status: 400 }
-      )
+      if (findError && findError.code !== 'PGRST116') {
+        console.error('Error finding user:', findError)
+        return NextResponse.json(
+          { error: findError.message }, 
+          { status: 400 }
+        )
+      }
+
+      if (existingUser) {
+        user = existingUser
+      } else {
+        // Create new user
+        const { data: newUser, error: createError } = await supabaseAdmin
+          .from('users_new')
+          .insert({
+            telegram_username: userId,
+            tier: 'degen',
+            total_shills: 0
+          })
+          .select()
+          .single()
+
+        if (createError) {
+          console.error('Error creating user:', createError)
+          return NextResponse.json(
+            { error: createError.message }, 
+            { status: 400 }
+          )
+        }
+        user = newUser
+      }
+    } else {
+      // Create anonymous user for anonymous requests
+      const { data: anonUser, error: userError } = await supabaseAdmin
+        .from('users_new')
+        .upsert({
+          telegram_username: `anon_${Date.now()}`,
+          tier: 'degen',
+          total_shills: 0
+        }, {
+          onConflict: 'telegram_username',
+          ignoreDuplicates: false
+        })
+        .select()
+        .single()
+
+      if (userError) {
+        console.error('Error creating/getting user:', userError)
+        return NextResponse.json(
+          { error: userError.message }, 
+          { status: 400 }
+        )
+      }
+      user = anonUser
     }
 
-    // Create the shill with the user ID
-    const { data: shill, error: shillError } = await supabaseAdmin
+    // Calculate effective shills based on multiplier
+    const effectiveShills = Math.floor(multiplier)
+    console.log('Applying multiplier:', { multiplier, effectiveShills })
+
+    // Create multiple shill records based on the multiplier
+    const shillRecords = Array.from({ length: effectiveShills }, () => ({
+      user_id: user.id,
+      token_id: tokenId,
+    }))
+
+    const { data: shills, error: shillError } = await supabaseAdmin
       .from('shills_new')
-      .insert({
-        user_id: user.id,
-        token_id: tokenId,
-      })
+      .insert(shillRecords)
       .select()
-      .single()
 
     if (shillError) {
-      console.error('Error creating shill:', shillError)
+      console.error('Error creating shills:', shillError)
       return NextResponse.json(
         { error: shillError.message }, 
         { status: 400 }
@@ -76,11 +125,11 @@ export async function POST(request: Request) {
       )
     }
 
-    // Update token total_shills
+    // Update token total_shills with the effective shills
     const { data: token, error: tokenError } = await supabaseAdmin
       .from('tokens_new')
       .update({ 
-        total_shills: (currentToken?.total_shills || 0) + 1
+        total_shills: (currentToken?.total_shills || 0) + effectiveShills
       })
       .eq('id', tokenId)
       .select()
@@ -109,12 +158,13 @@ export async function POST(request: Request) {
       )
     }
 
-    // Update user total_shills
+    // Update user total_shills with the effective shills
+    const newUserTotal = (currentUser?.total_shills || 0) + effectiveShills
     const { data: updatedUser, error: updateUserError } = await supabaseAdmin
       .from('users_new')
       .update({ 
-        total_shills: (currentUser?.total_shills || 0) + 1,
-        tier: getTier((currentUser?.total_shills || 0) + 1)
+        total_shills: newUserTotal,
+        tier: getTier(newUserTotal)
       })
       .eq('id', user.id)
       .select()
@@ -130,7 +180,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ 
       success: true, 
-      shill,
+      shills,
+      effectiveShills,
       token,
       user: updatedUser
     })

@@ -18,26 +18,23 @@ const supabaseAdmin = createClient(
 interface BoosterPack {
   id: string
   name: string
-  description: string
-  price_ton: number
+  description: string | null
+  price_usd: number
   multiplier: number
   duration_hours: number
   max_uses: number | null
-  created_at: string
-  updated_at: string
+  is_active: boolean | null
+  created_at: string | null
 }
 
 interface UserBooster {
   id: string
-  user_id: string
-  booster_pack_id: string
-  is_active: boolean
-  uses_remaining: number | null
+  user_id: string | null
+  booster_pack_id: string | null
+  purchased_at: string | null
   expires_at: string
-  payment_id: string
-  ton_amount: number
-  created_at: string
-  updated_at: string
+  is_active: boolean | null
+  transaction_hash: string | null
   booster_pack?: BoosterPack
 }
 
@@ -46,21 +43,51 @@ export async function GET(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: userId } = await context.params
+    const { id: walletAddress } = await context.params
+    console.log('Boosters API called with wallet address:', walletAddress)
 
     // For anonymous users, return empty boosters array
-    if (userId === 'anonymous') {
+    if (walletAddress === 'anonymous') {
+      console.log('Anonymous user - returning empty boosters')
       return NextResponse.json({ 
         boosters: [],
         totalMultiplier: 1
       })
     }
 
+    // Find the user by wallet address (telegram_username)
+    const { data: user, error: userError } = await supabaseAdmin
+      .from('users_new')
+      .select('id')
+      .eq('telegram_username', walletAddress)
+      .single()
+
+    console.log('User lookup result:', { user, userError })
+
+    if (userError && userError.code !== 'PGRST116') {
+      console.error('Error finding user:', userError)
+      return NextResponse.json(
+        { error: 'User not found' }, 
+        { status: 404 }
+      )
+    }
+
+    // If user doesn't exist, return empty boosters
+    if (!user) {
+      console.log('User not found - returning empty boosters')
+      return NextResponse.json({ 
+        boosters: [],
+        totalMultiplier: 1
+      })
+    }
+
+    console.log('Found user with ID:', user.id)
+
     // First, deactivate any expired boosters
     await supabaseAdmin
       .from('user_boosters')
       .update({ is_active: false })
-      .eq('user_id', userId)
+      .eq('user_id', user.id)
       .lt('expires_at', new Date().toISOString())
 
     // Get active boosters with booster pack details
@@ -70,10 +97,12 @@ export async function GET(
         *,
         booster_pack:booster_packs(*)
       `)
-      .eq('user_id', userId)
+      .eq('user_id', user.id)
       .eq('is_active', true)
       .gt('expires_at', new Date().toISOString())
       .order('expires_at', { ascending: true })
+
+    console.log('Boosters query result:', { boosters, error })
 
     if (error) {
       console.error('Error fetching user boosters:', error)
@@ -83,10 +112,15 @@ export async function GET(
       )
     }
 
-    // Calculate total multiplier
-    const totalMultiplier = (boosters || []).reduce((total, booster: UserBooster) => {
-      return total + (booster.booster_pack?.multiplier || 1) - 1
-    }, 1)
+    // Calculate total multiplier - use the highest multiplier (since only one booster can be active)
+    let totalMultiplier = 1
+    if (boosters && boosters.length > 0) {
+      // Since only one booster can be active at a time, just use the multiplier from the first booster
+      totalMultiplier = boosters[0].booster_pack?.multiplier || 1
+      console.log('Active booster multiplier:', totalMultiplier)
+    }
+
+    console.log('Final result:', { boosters: boosters || [], totalMultiplier })
 
     return NextResponse.json({ 
       boosters: boosters || [],

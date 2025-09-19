@@ -38,7 +38,7 @@ const BOOSTERS = [
 export function BoosterShop({ userId = 'anonymous' }: BoosterShopProps) {
   const { activeBoosters, totalMultiplier, nextExpiring } = useUserBoosters(userId)
   const { formatUsdWithTon, price: tonPrice, isLoading: isPriceLoading } = useTonPrice()
-  const [isLoading, setIsLoading] = useState(false)
+  const [loadingBoosterId, setLoadingBoosterId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const hasActiveBooster = activeBoosters.length > 0
@@ -52,7 +52,7 @@ export function BoosterShop({ userId = 'anonymous' }: BoosterShopProps) {
       return
     }
 
-    setIsLoading(true)
+    setLoadingBoosterId(packId)
     setError(null)
 
     try {
@@ -83,30 +83,36 @@ export function BoosterShop({ userId = 'anonymous' }: BoosterShopProps) {
         data
       })
 
-      console.log('Purchase response:', {
-        status: response.status,
-        ok: response.ok,
-        data
-      })
-
       if (!response.ok) {
-        const errorMessage = data.error || 'Failed to purchase booster'
-        console.error('Purchase error details:', {
-          message: errorMessage,
-          details: data.details,
-          hint: data.hint,
-          code: data.code
+        let errorMessage = data.error || 'Failed to purchase booster'
+        
+        // Handle specific database constraint errors
+        if (data.error && data.error.includes('duplicate key value violates unique constraint')) {
+          if (data.error.includes('idx_one_active_booster_per_user')) {
+            errorMessage = 'You already have an active booster. Please wait for it to expire before purchasing another one.'
+          }
+        }
+        
+        console.error('Purchase failed:', {
+          status: response.status,
+          error: errorMessage,
+          fullError: data
         })
+        
         throw new Error(errorMessage)
       }
 
+      // Success - show success message briefly then refresh
+      setError(null)
+      console.log('Booster purchased successfully!')
+      
       // Refresh page to show new booster
       window.location.reload()
     } catch (error) {
       console.error('Error purchasing booster:', error)
       setError(error instanceof Error ? error.message : 'Failed to purchase booster. Please try again.')
     } finally {
-      setIsLoading(false)
+      setLoadingBoosterId(null)
     }
   }
 
@@ -200,10 +206,10 @@ export function BoosterShop({ userId = 'anonymous' }: BoosterShopProps) {
               </ul>
               <Button
                 onClick={() => handlePurchase(booster.id)}
-                disabled={isLoading || hasActiveBooster}
+                disabled={loadingBoosterId !== null || hasActiveBooster}
                 className={`w-full bg-${booster.color}-600 hover:bg-${booster.color}-700 disabled:opacity-50`}
               >
-                {isLoading ? 'Processing...' : 
+                {loadingBoosterId === booster.id ? 'Processing...' : 
                  hasActiveBooster ? 'Already Have Active Booster' : 
                  isTestMode ? '🧪 Test Purchase' : 
                  'Buy Now'}
