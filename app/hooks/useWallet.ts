@@ -95,7 +95,7 @@ export function useWallet() {
       // Request account access
       const accounts = await provider.request({
         method: 'eth_requestAccounts'
-      })
+      }) as string[]
 
       if (accounts.length === 0) {
         throw new Error('No accounts found')
@@ -104,7 +104,7 @@ export function useWallet() {
       // Get chain ID
       const chainId = await provider.request({
         method: 'eth_chainId'
-      })
+      }) as string
 
       // Get balance
       let balance = null
@@ -112,7 +112,7 @@ export function useWallet() {
         const balanceWei = await provider.request({
           method: 'eth_getBalance',
           params: [accounts[0], 'latest']
-        })
+        }) as string
         balance = (parseInt(balanceWei, 16) / 1e18).toFixed(4)
       } catch (balanceError) {
         console.warn('Could not fetch balance:', balanceError)
@@ -128,7 +128,8 @@ export function useWallet() {
       })
 
       // Listen for account changes
-      provider.on('accountsChanged', (accounts: string[]) => {
+      provider.on('accountsChanged', (params: unknown) => {
+        const accounts = params as string[]
         if (accounts.length === 0) {
           disconnectWallet()
         } else {
@@ -137,7 +138,8 @@ export function useWallet() {
       })
 
       // Listen for chain changes
-      provider.on('chainChanged', (chainId: string) => {
+      provider.on('chainChanged', (params: unknown) => {
+        const chainId = params as string
         setWalletState(prev => ({
           ...prev,
           chainId: parseInt(chainId, 16),
