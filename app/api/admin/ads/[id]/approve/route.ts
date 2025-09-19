@@ -15,11 +15,6 @@ const supabaseAdmin = createClient<Database>(
   }
 )
 
-interface AdSlotUpdate {
-  is_approved: boolean
-  updated_at: string
-}
-
 const ADMIN_WALLET = '0x18521c6f092B2261f7E2771A4D02c3cC7010DDE3'
 
 export async function POST(
@@ -52,7 +47,7 @@ export async function POST(
       .update({
         is_approved: true,
         updated_at: new Date().toISOString()
-      } satisfies AdSlotUpdate)
+      } satisfies Database['public']['Tables']['ad_slots']['Update'])
       .eq('id', adId)
       .select()
       .single()
