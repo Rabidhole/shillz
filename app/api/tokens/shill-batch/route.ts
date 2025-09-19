@@ -5,7 +5,7 @@ import { Database } from '@/app/types/database'
 export const dynamic = 'force-dynamic'
 
 // Create a Supabase client with the service role key
-const supabaseAdmin = createClient<Database>(
+const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
   {
