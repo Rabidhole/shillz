@@ -49,8 +49,8 @@ export async function POST(
     }
 
     // Approve the ad
-    const query = supabaseAdmin.from('ad_slots')
-    const { data: approvedAd, error } = await (query as any)
+    const { data: approvedAd, error } = await supabaseAdmin
+      .from('ad_slots')
       .update(updateData)
       .eq('id', adId)
       .select()

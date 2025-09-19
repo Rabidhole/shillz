@@ -4,20 +4,19 @@ export type TimeWindow = 'hour' | 'day';
 export interface User {
     id: string;
     telegram_username: string;
-    wallet_address: string | null;
     tier: UserTier;
-    total_shills: number; // Now represents 24-hour shills
-    created_at: string;
+    total_shills: number;
+    created_at: string | null;
 }
 
 export interface Token {
     id: string;
-    name: string;
+    name: string | null;
     contract_address: string;
     chain: string;
     description: string | null;
     image_url: string | null;
-    total_shills: number; // Now represents 24-hour shills
+    total_shills: number | null;
     created_at: string;
 }
 
@@ -52,32 +51,51 @@ export interface AdSlot {
     start_date: string;
     end_date: string;
     price_ton: number;
+    payment_id: string;
     ton_amount: number;
-    is_approved: boolean;
-    created_at: string;
-    updated_at: string;
+    is_active: boolean | null;
+    is_approved: boolean | null;
+    created_at: string | null;
+    updated_at: string | null;
+}
+
+export interface AdPricing {
+    id: string;
+    duration_days: number;
+    base_price_usd: number;
+    multiplier: number | null;
+    is_active: boolean | null;
+    created_at: string | null;
 }
 
 export interface BoosterPack {
     id: string;
     name: string;
-    description: string;
-    price_ton: number;
+    description: string | null;
+    price_usd: number;
     multiplier: number;
     duration_hours: number;
     max_uses: number | null;
-    created_at: string;
-    updated_at: string;
+    is_active: boolean | null;
+    created_at: string | null;
+}
+
+export interface UserBooster {
+    id: string;
+    user_id: string;
+    booster_pack_id: string;
+    is_active: boolean | null;
+    uses_remaining: number | null;
+    expires_at: string;
+    payment_id: string;
+    ton_amount: number;
+    created_at: string | null;
+    updated_at: string | null;
 }
 
 export interface Database {
     public: {
         Tables: {
-            booster_packs: {
-                Row: BoosterPack;
-                Insert: Omit<BoosterPack, 'id' | 'created_at' | 'updated_at'>;
-                Update: Partial<Omit<BoosterPack, 'id' | 'created_at'>>;
-            };
             users_new: {
                 Row: User;
                 Insert: Omit<User, 'id' | 'created_at' | 'total_shills' | 'tier'>;
@@ -100,8 +118,23 @@ export interface Database {
             };
             ad_slots: {
                 Row: AdSlot;
-                Insert: Omit<AdSlot, 'id' | 'created_at' | 'updated_at' | 'is_approved'>;
+                Insert: Omit<AdSlot, 'id' | 'created_at' | 'updated_at' | 'is_approved' | 'is_active'>;
                 Update: Partial<Omit<AdSlot, 'id' | 'created_at'>>;
+            };
+            ad_pricing: {
+                Row: AdPricing;
+                Insert: Omit<AdPricing, 'id' | 'created_at' | 'is_active'>;
+                Update: Partial<Omit<AdPricing, 'id' | 'created_at'>>;
+            };
+            booster_packs: {
+                Row: BoosterPack;
+                Insert: Omit<BoosterPack, 'id' | 'created_at' | 'is_active'>;
+                Update: Partial<Omit<BoosterPack, 'id' | 'created_at'>>;
+            };
+            user_boosters: {
+                Row: UserBooster;
+                Insert: Omit<UserBooster, 'id' | 'created_at' | 'updated_at'>;
+                Update: Partial<Omit<UserBooster, 'id' | 'created_at'>>;
             };
         };
     };

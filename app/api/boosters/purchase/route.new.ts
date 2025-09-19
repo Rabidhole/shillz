@@ -18,7 +18,7 @@ export async function OPTIONS() {
   })
 }
 
-const supabaseAdmin = createClient<Database>(
+const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
@@ -26,13 +26,13 @@ const supabaseAdmin = createClient<Database>(
 async function getOrCreateAnonymousUser() {
   const anonymousId = crypto.randomUUID()
 
-  const { error } = await (supabaseAdmin
+  const { error } = await supabaseAdmin
     .from('users_new')
     .insert({
       telegram_username: 'anonymous'
     })
     .select()
-    .single()) as any
+    .single()
 
   if (error && error.code !== '23505') {
     throw error
@@ -43,8 +43,11 @@ async function getOrCreateAnonymousUser() {
 
 export async function POST(request: Request) {
   try {
+    console.log('=== BOOSTER PURCHASE DEBUG START ===')
     const requestData = await request.json() as BoosterPurchaseRequest
+    console.log('Request data:', JSON.stringify(requestData, null, 2))
     const { id: boosterId, walletAddress, testMode } = requestData
+    console.log('Parsed values:', { boosterId, walletAddress, testMode })
 
     // In test mode, create a fake transaction
     const tonPayload = testMode ? {
@@ -67,9 +70,18 @@ export async function POST(request: Request) {
     }
 
     // Handle anonymous user
+    console.log('Processing user ID:', userId)
     const actualUserId = userId === 'anonymous' 
       ? await getOrCreateAnonymousUser()
       : userId
+    console.log('Actual user ID to use:', actualUserId)
+
+    if (!actualUserId) {
+      return NextResponse.json(
+        { error: 'Failed to create or identify user' },
+        { status: 400 }
+      )
+    }
 
     // Check if user already has an active booster
     const { data: activeBooster, error: activeError } = await supabaseAdmin
@@ -102,9 +114,12 @@ export async function POST(request: Request) {
       .from('booster_packs')
       .select('*')
       .eq('id', boosterId)
-      .single() as any
+      .single()
+
+    console.log('Booster pack query result:', { boosterPack, boosterError })
 
     if (boosterError || !boosterPack) {
+      console.error('Booster pack not found:', { boosterId, boosterError })
       return NextResponse.json(
         { error: 'Booster pack not found' },
         { status: 404 }
@@ -112,8 +127,8 @@ export async function POST(request: Request) {
     }
 
     // Skip payment verification in test mode
-    const paidAmount = testMode ? 1 : tonPayload!.amount / 1000000000 // Convert from nanoTON to TON
-    if (!testMode && paidAmount !== boosterPack.price_ton) {
+    const paidAmount = testMode ? 0.99 : tonPayload!.amount / 1000000000 // Convert from nanoTON to TON
+    if (!testMode && paidAmount !== boosterPack.price_usd) {
       return NextResponse.json(
         { error: 'Invalid payment amount' },
         { status: 400 }
