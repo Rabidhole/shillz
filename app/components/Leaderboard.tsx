@@ -1,24 +1,108 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { useLeaderboard } from '../hooks/useLeaderboard'
+import { useSupabase } from '../hooks/useSupabase'
 import { Button } from '@/components/ui/button'
 import { cn } from '../../lib/utils'
+import { type Token } from '../types/database'
 
 interface LeaderboardProps {
   search: string
 }
 
-export function Leaderboard({ search }: LeaderboardProps) {
-  const { data, isLoading, error, loadMore, refresh } = useLeaderboard(search, 50)
+interface LeaderboardToken extends Token {
+  rank: number
+  hot_shills: number
+}
 
-  // Auto-refresh every 30 seconds
+export function Leaderboard({ search }: LeaderboardProps) {
+  const supabase = useSupabase()
+  const [tokens, setTokens] = useState<LeaderboardToken[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // Fetch initial leaderboard data
+  const fetchLeaderboard = useCallback(async () => {
+    try {
+      setIsLoading(true)
+      
+      // Get all tokens
+      let query = supabase
+        .from('tokens_new')
+        .select('*')
+
+      // Add search filter if provided
+      if (search) {
+        query = query.or(`name.ilike.%${search}%,contract_address.ilike.%${search}%`)
+      }
+
+      const { data: tokensData, error: tokensError } = await query
+
+      if (tokensError) throw tokensError
+      if (!tokensData) return
+
+      // Calculate 24-hour shill counts for all tokens
+      const tokenStats = await Promise.all(
+        tokensData.map(async (token) => {
+          const { count } = await supabase
+            .from('shills_new')
+            .select('*', { count: 'exact', head: true })
+            .eq('token_id', token.id)
+            .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+
+          return {
+            ...token,
+            hot_shills: count || 0
+          }
+        })
+      )
+
+      // Sort by 24-hour shill count and add ranks
+      const rankedTokens = tokenStats
+        .sort((a, b) => b.hot_shills - a.hot_shills)
+        .map((token, index) => ({
+          ...token,
+          rank: index + 1
+        }))
+
+      setTokens(rankedTokens)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch leaderboard')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [supabase, search])
+
+  // Initial fetch
   useEffect(() => {
-    const interval = setInterval(refresh, 30000)
-    return () => clearInterval(interval)
-  }, [refresh]) // refresh is stable from useLeaderboard
+    fetchLeaderboard()
+  }, [fetchLeaderboard])
+
+  // Subscribe to real-time shill updates
+  useEffect(() => {
+    const subscription = supabase
+      .channel('leaderboard_realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'shills_new'
+        },
+        async (payload) => {
+          // When a new shill is added, refresh the leaderboard
+          console.log('New shill detected, refreshing leaderboard...')
+          await fetchLeaderboard()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(subscription)
+    }
+  }, [supabase, fetchLeaderboard])
 
   const getRankColor = (rank: number) => {
     if (rank === 1) return 'text-yellow-400 bg-yellow-400/20'
@@ -40,7 +124,7 @@ export function Leaderboard({ search }: LeaderboardProps) {
     return (
       <div className="text-center py-8">
         <p className="text-red-400">Error loading leaderboard: {error}</p>
-        <Button onClick={refresh} className="mt-4">
+        <Button onClick={fetchLeaderboard} className="mt-4">
           Try Again
         </Button>
       </div>
@@ -51,11 +135,17 @@ export function Leaderboard({ search }: LeaderboardProps) {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-white">
-          🔥 Hot Tokens (24h)
-        </h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-2xl font-bold text-white">
+            🔥 Hot Tokens (24h)
+          </h2>
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+            <span className="text-xs text-green-400 font-medium">LIVE</span>
+          </div>
+        </div>
         <Button 
-          onClick={refresh} 
+          onClick={fetchLeaderboard} 
           variant="outline" 
           size="sm"
           disabled={isLoading}
@@ -66,7 +156,7 @@ export function Leaderboard({ search }: LeaderboardProps) {
 
       {/* Compact Leaderboard */}
       <div className="space-y-2">
-        {data.tokens.map((token) => (
+        {tokens.map((token) => (
           <Link 
             key={token.id} 
             href={`/tokens/${token.id}`}
@@ -137,22 +227,8 @@ export function Leaderboard({ search }: LeaderboardProps) {
         ))}
       </div>
 
-      {/* Load More */}
-      {data.hasMore && (
-        <div className="text-center pt-4">
-          <Button 
-            onClick={loadMore}
-            disabled={isLoading}
-            variant="outline"
-            size="sm"
-          >
-            {isLoading ? 'Loading...' : 'Load More'}
-          </Button>
-        </div>
-      )}
-
       {/* Empty State */}
-      {data.tokens.length === 0 && !isLoading && (
+      {tokens.length === 0 && !isLoading && (
         <div className="text-center py-12">
           <p className="text-gray-400">
             {search ? 'No tokens found matching your search.' : 'No tokens available.'}
