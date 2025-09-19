@@ -5,10 +5,11 @@ import { Button } from '@/components/ui/button'
 import { useUserBoosters } from '../hooks/useUserBoosters'
 import { useReownWallet } from '../hooks/useReownWallet'
 import { type BoosterPack } from '../types/boosters'
+import { cn } from '../../lib/utils'
 
 export function BoosterTester() {
   const { address } = useReownWallet()
-  const { totalMultiplier, hasActiveBoosters, boosters } = useUserBoosters(address || 'test-user')
+  const { totalMultiplier, hasActiveBoosters, activeBoosters } = useUserBoosters(address || 'test-user')
   const [availableBoosters, setAvailableBoosters] = useState<BoosterPack[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [testResult, setTestResult] = useState<string>('')
@@ -89,11 +90,11 @@ export function BoosterTester() {
       </div>
 
       {/* Active Boosters */}
-      {boosters && boosters.length > 0 && (
+      {activeBoosters && activeBoosters.length > 0 && (
         <div className="bg-purple-900/20 border border-purple-500/20 rounded-lg p-6">
           <h2 className="text-xl font-bold text-white mb-4">Active Boosters</h2>
           <div className="space-y-4">
-            {boosters.map((booster) => (
+            {activeBoosters.map((booster) => (
               <div key={booster.id} className="bg-gray-800/50 rounded-lg p-4">
                 <div className="font-semibold text-purple-400">
                   {booster.booster_pack?.name}
