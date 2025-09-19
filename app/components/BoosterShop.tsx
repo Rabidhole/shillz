@@ -45,7 +45,7 @@ export function BoosterShop({ userId = 'anonymous' }: BoosterShopProps) {
 
   // Check if we're in test mode
   const isTestMode = process.env.NODE_ENV === 'development'
-
+//check
   const handlePurchase = async (packId: string) => {
     if (hasActiveBooster) {
       setError('You already have an active booster. Wait for it to expire before purchasing another one.')
