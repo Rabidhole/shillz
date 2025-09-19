@@ -23,22 +23,40 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-async function getOrCreateAnonymousUser() {
-  const anonymousId = crypto.randomUUID()
-
-  const { error } = await supabaseAdmin
+async function getOrCreateUser(walletAddress: string) {
+  // First try to find existing user by wallet address (if users_new has wallet_address field)
+  // For now, just create a new user with the wallet as telegram_username
+  const { data: existingUser, error: findError } = await supabaseAdmin
     .from('users_new')
-    .insert({
-      telegram_username: 'anonymous'
-    })
-    .select()
+    .select('id')
+    .eq('telegram_username', walletAddress)
     .single()
 
-  if (error && error.code !== '23505') {
-    throw error
+  if (findError && findError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+    console.error('Error finding user:', findError)
   }
 
-  return anonymousId
+  if (existingUser) {
+    console.log('Found existing user:', existingUser.id)
+    return existingUser.id
+  }
+
+  // Create new user
+  const { data: newUser, error: createError } = await supabaseAdmin
+    .from('users_new')
+    .insert({
+      telegram_username: walletAddress
+    })
+    .select('id')
+    .single()
+
+  if (createError) {
+    console.error('Error creating user:', createError)
+    throw createError
+  }
+
+  console.log('Created new user:', newUser.id)
+  return newUser.id
 }
 
 export async function POST(request: Request) {
@@ -69,11 +87,9 @@ export async function POST(request: Request) {
       )
     }
 
-    // Handle anonymous user
+    // Handle user creation/lookup
     console.log('Processing user ID:', userId)
-    const actualUserId = userId === 'anonymous' 
-      ? await getOrCreateAnonymousUser()
-      : userId
+    const actualUserId = await getOrCreateUser(userId || 'anonymous')
     console.log('Actual user ID to use:', actualUserId)
 
     if (!actualUserId) {
