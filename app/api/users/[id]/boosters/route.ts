@@ -46,14 +46,8 @@ export async function GET(
     const { id: walletAddress } = await context.params
     console.log('Boosters API called with wallet address:', walletAddress)
 
-    // For anonymous users, return empty boosters array
-    if (walletAddress === 'anonymous') {
-      console.log('Anonymous user - returning empty boosters')
-      return NextResponse.json({ 
-        boosters: [],
-        totalMultiplier: 1
-      })
-    }
+    // For anonymous users, still check the database since they might have boosters
+    // Don't shortcut here - let the normal flow handle it
 
     // Find the user by wallet address (telegram_username)
     const { data: user, error: userError } = await supabaseAdmin

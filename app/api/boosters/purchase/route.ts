@@ -99,24 +99,30 @@ export async function POST(request: Request) {
       )
     }
 
+    // Use a more robust approach to check and clean up expired boosters
+    const currentTime = new Date().toISOString()
+    
     // First, deactivate any expired boosters for this user
-    await supabaseAdmin
+    const { error: deactivateError } = await supabaseAdmin
       .from('user_boosters')
       .update({ is_active: false })
       .eq('user_id', actualUserId)
       .eq('is_active', true)
-      .lt('expires_at', new Date().toISOString())
+      .lt('expires_at', currentTime)
 
-    // Check if user already has an active booster
-    const { data: activeBooster, error: activeError } = await supabaseAdmin
+    if (deactivateError) {
+      console.error('Error deactivating expired boosters:', deactivateError)
+    }
+
+    // Check if user already has an active booster (using the same timestamp)
+    const { data: activeBoosters, error: activeError } = await supabaseAdmin
       .from('user_boosters')
       .select('*')
       .eq('user_id', actualUserId)
       .eq('is_active', true)
-      .gt('expires_at', new Date().toISOString())
-      .single()
+      .gt('expires_at', currentTime)
 
-    if (activeError && activeError.code !== 'PGRST116') {
+    if (activeError) {
       console.error('Error checking active boosters:', activeError)
       return NextResponse.json(
         { error: activeError.message },
@@ -124,7 +130,8 @@ export async function POST(request: Request) {
       )
     }
 
-    if (activeBooster) {
+    if (activeBoosters && activeBoosters.length > 0) {
+      console.log('Found active boosters:', activeBoosters)
       return NextResponse.json(
         { error: 'You already have an active booster. Wait for it to expire before purchasing another one.' },
         { status: 400 }
@@ -163,6 +170,38 @@ export async function POST(request: Request) {
     const expiresAt = new Date()
     expiresAt.setHours(expiresAt.getHours() + boosterPack.duration_hours)
 
+    // Before creating the booster, do one final check with a more explicit query
+    // This helps prevent race conditions
+    const { data: finalCheck, error: finalCheckError } = await supabaseAdmin
+      .from('user_boosters')
+      .select('id, expires_at')
+      .eq('user_id', actualUserId)
+      .eq('is_active', true)
+      .limit(1)
+
+    if (finalCheckError) {
+      console.error('Error in final active booster check:', finalCheckError)
+    }
+
+    if (finalCheck && finalCheck.length > 0) {
+      console.log('Final check found active booster:', finalCheck[0])
+      // Check if it's actually expired
+      const expiredTime = new Date(finalCheck[0].expires_at)
+      if (expiredTime > new Date()) {
+        return NextResponse.json(
+          { error: 'You already have an active booster. Please wait for it to expire before purchasing another one.' },
+          { status: 400 }
+        )
+      } else {
+        // It's expired, deactivate it
+        console.log('Deactivating expired booster found in final check')
+        await supabaseAdmin
+          .from('user_boosters')
+          .update({ is_active: false })
+          .eq('id', finalCheck[0].id)
+      }
+    }
+
     // Create user booster
     const { data: userBooster, error: createError } = await supabaseAdmin
       .from('user_boosters')
@@ -171,7 +210,6 @@ export async function POST(request: Request) {
         booster_pack_id: boosterPack.id,
         expires_at: expiresAt.toISOString(),
         is_active: true,
-        purchased_at: new Date().toISOString(),
         transaction_hash: tonPayload!.transaction_id
       })
       .select()
@@ -180,12 +218,23 @@ export async function POST(request: Request) {
     if (createError) {
       console.error('Error creating user booster:', createError)
       
-      // Handle specific constraint violations
-      if (createError.code === '23505' && createError.message.includes('idx_one_active_booster_per_user')) {
-        return NextResponse.json(
-          { error: 'You already have an active booster. Please wait for it to expire before purchasing another one.' },
-          { status: 400 }
-        )
+      // Handle specific constraint violations with more detailed logging
+      if (createError.code === '23505') {
+        if (createError.message.includes('idx_one_active_booster_per_user')) {
+          console.error('Constraint violation: User already has active booster despite checks')
+          // Try to find what active booster exists
+          const { data: debugBoosters } = await supabaseAdmin
+            .from('user_boosters')
+            .select('*')
+            .eq('user_id', actualUserId)
+            .eq('is_active', true)
+          console.error('Debug - Active boosters found:', debugBoosters)
+          
+          return NextResponse.json(
+            { error: 'You already have an active booster. Please wait for it to expire before purchasing another one.' },
+            { status: 400 }
+          )
+        }
       }
       
       return NextResponse.json(
