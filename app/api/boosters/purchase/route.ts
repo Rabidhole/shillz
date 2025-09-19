@@ -32,7 +32,7 @@ const supabaseAdmin = createClient<Database>(
 async function getOrCreateAnonymousUser() {
   const anonymousId = crypto.randomUUID()
 
-  const { data: user, error } = await supabaseAdmin
+  const { error } = await supabaseAdmin
     .from('users_new')
     .insert({
       id: anonymousId,

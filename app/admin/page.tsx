@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { useReownWallet } from '../hooks/useReownWallet'
@@ -36,7 +36,7 @@ export default function AdminPage() {
     }
   }, [isAdmin, fetchPendingAds])
 
-  const fetchPendingAds = async () => {
+  const fetchPendingAds = useCallback(async () => {
     // Only fetch if user is admin
     if (!isAdmin) {
       setIsLoading(false)
@@ -66,7 +66,7 @@ export default function AdminPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [isAdmin])
 
   const handleApprove = async (adId: string) => {
     if (!address) {

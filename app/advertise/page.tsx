@@ -44,7 +44,7 @@ export default function AdvertisePage() {
           </div>
           <div className="mt-4 p-4 bg-gray-800/50 rounded-lg">
             <p className="text-sm text-gray-300">
-              💡 <strong>Note:</strong> You'll provide the image URL during booking. Make sure your image is hosted on a reliable service like GitHub, Imgur, or your own CDN.
+              💡 <strong>Note:</strong> You&apos;ll provide the image URL during booking. Make sure your image is hosted on a reliable service like GitHub, Imgur, or your own CDN.
             </p>
           </div>
         </div>
