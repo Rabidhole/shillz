@@ -49,12 +49,12 @@ export async function POST(
     }
 
     // Approve the ad
-    const { data: approvedAd, error } = await (supabaseAdmin
-      .from('ad_slots') as any
-      .update(updateData as any)
+    const query = supabaseAdmin.from('ad_slots')
+    const { data: approvedAd, error } = await (query as any)
+      .update(updateData)
       .eq('id', adId)
       .select()
-      .single()) as unknown as { data: AdSlot, error: any }
+      .single()
 
     if (error) {
       console.error('Error approving ad:', error)
