@@ -20,29 +20,19 @@ export async function OPTIONS() {
 
 const supabaseAdmin = createClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
 async function getOrCreateAnonymousUser() {
   const anonymousId = crypto.randomUUID()
 
-  const { data: user, error } = await supabaseAdmin
+  const { error } = await (supabaseAdmin
     .from('users_new')
     .insert({
-      id: anonymousId,
-      telegram_username: 'anonymous',
-      tier: 'degen',
-      total_shills: 0,
-      hot_shills: 0
+      telegram_username: 'anonymous'
     })
     .select()
-    .single()
+    .single()) as unknown as { error: any }
 
   if (error && error.code !== '23505') {
     throw error
@@ -54,7 +44,7 @@ async function getOrCreateAnonymousUser() {
 export async function POST(request: Request) {
   try {
     const requestData = await request.json() as BoosterPurchaseRequest
-    const { id: boosterId, paymentMethod, walletAddress, testMode } = requestData
+    const { id: boosterId, walletAddress, testMode } = requestData
 
     // In test mode, create a fake transaction
     const tonPayload = testMode ? {
@@ -112,7 +102,10 @@ export async function POST(request: Request) {
       .from('booster_packs')
       .select('*')
       .eq('id', boosterId)
-      .single()
+      .single() as unknown as { 
+        data: Database['public']['Tables']['booster_packs']['Row'], 
+        error: any 
+      }
 
     if (boosterError || !boosterPack) {
       return NextResponse.json(

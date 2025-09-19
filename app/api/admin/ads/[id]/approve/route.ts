@@ -4,7 +4,7 @@ import { Database } from '@/app/types/database'
 
 export const dynamic = 'force-dynamic'
 
-const supabaseAdmin = createClient<Database>(
+const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
   {
@@ -16,6 +16,8 @@ const supabaseAdmin = createClient<Database>(
 )
 
 const ADMIN_WALLET = '0x18521c6f092B2261f7E2771A4D02c3cC7010DDE3'
+
+type AdSlotUpdate = Database['public']['Tables']['ad_slots']['Update']
 
 export async function POST(
   request: Request,
@@ -41,16 +43,18 @@ export async function POST(
       )
     }
 
+    const updateData: AdSlotUpdate = {
+      is_approved: true,
+      updated_at: new Date().toISOString()
+    }
+
     // Approve the ad
-    const { data: approvedAd, error } = await supabaseAdmin
-      .from('ad_slots')
-      .update({
-        is_approved: true,
-        updated_at: new Date().toISOString()
-      } satisfies Database['public']['Tables']['ad_slots']['Update'])
+    const { data: approvedAd, error } = await (supabaseAdmin
+      .from('ad_slots') as any
+      .update(updateData as any)
       .eq('id', adId)
       .select()
-      .single()
+      .single()) as unknown as { data: AdSlot, error: any }
 
     if (error) {
       console.error('Error approving ad:', error)

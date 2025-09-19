@@ -58,9 +58,26 @@ export interface AdSlot {
     updated_at: string;
 }
 
+export interface BoosterPack {
+    id: string;
+    name: string;
+    description: string;
+    price_ton: number;
+    multiplier: number;
+    duration_hours: number;
+    max_uses: number | null;
+    created_at: string;
+    updated_at: string;
+}
+
 export interface Database {
     public: {
         Tables: {
+            booster_packs: {
+                Row: BoosterPack;
+                Insert: Omit<BoosterPack, 'id' | 'created_at' | 'updated_at'>;
+                Update: Partial<Omit<BoosterPack, 'id' | 'created_at'>>;
+            };
             users_new: {
                 Row: User;
                 Insert: Omit<User, 'id' | 'created_at' | 'total_shills' | 'tier'>;
