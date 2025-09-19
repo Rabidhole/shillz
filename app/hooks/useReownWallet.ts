@@ -20,18 +20,14 @@ export function useReownWallet() {
 
   useEffect(() => {
     // Subscribe to connection events
-    const unsubscribe = appKit.subscribeAccount((account) => {
+    appKit.subscribeAccount((account) => {
       setWalletState({
         isConnected: account.isConnected,
         address: account.address || null,
-        chainId: account.chainId || null,
+        chainId: null,
         balance: null // Balance will be fetched separately if needed
       })
     })
-
-    return () => {
-      unsubscribe?.()
-    }
   }, [])
 
   const openModal = () => {
