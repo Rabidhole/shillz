@@ -99,7 +99,7 @@ export function TokenCard({ tokenId, className }: TokenCardProps) {
         <div className="flex flex-col items-center justify-center py-8">
           <TokenShillButton 
             tokenId={token.id} 
-            currentShills={token.total_shills}
+            currentShills={token.total_shills || 0}
           />
         </div>
 
@@ -112,7 +112,7 @@ export function TokenCard({ tokenId, className }: TokenCardProps) {
             <div className="text-center">
               <div className="text-sm text-gray-400 mb-1">24h Activity</div>
               <div className="text-2xl font-bold text-white">
-                {token.total_shills.toLocaleString()} shills
+                {(token.total_shills || 0).toLocaleString()} shills
               </div>
               {rankData && (
                 <div className="text-sm text-gray-500 mt-1">
