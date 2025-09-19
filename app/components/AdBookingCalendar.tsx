@@ -28,9 +28,7 @@ const PRICING_TIERS = isTestMode ? [
 export function AdBookingCalendar() {
   const [selectedDates, setSelectedDates] = useState<string[]>([])
   const [availableSlots, setAvailableSlots] = useState<AdSlot[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   const [showBookingForm, setShowBookingForm] = useState(false)
-  const [bulkSelection, setBulkSelection] = useState<{[key: number]: boolean}>({})
   const [formData, setFormData] = useState({
     title: '',
     imageUrl: '',
@@ -39,7 +37,7 @@ export function AdBookingCalendar() {
   })
   const [formErrors, setFormErrors] = useState<{[key: string]: string}>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const { convertUsdToTon, formatUsdWithTon } = useTonPrice()
+  const { formatUsdWithTon } = useTonPrice()
 
   // Generate next 60 days
   const generateCalendarDays = () => {
@@ -116,12 +114,10 @@ export function AdBookingCalendar() {
     }
     
     setSelectedDates(dates)
-    setBulkSelection({ [duration]: true })
   }
 
   const clearSelection = () => {
     setSelectedDates([])
-    setBulkSelection({})
   }
 
   const validateForm = () => {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Token } from '../types/database'
 
 interface LeaderboardToken extends Token {
@@ -19,7 +19,7 @@ export function useLeaderboard(search: string = '', limit: number = 50) {
   const [offset, setOffset] = useState(0)
 
   // Fetch leaderboard data
-  const fetchLeaderboard = async (newOffset: number = 0, newSearch: string = search) => {
+  const fetchLeaderboard = useCallback(async (newOffset: number = 0, newSearch: string = search) => {
     try {
       setIsLoading(true)
       
@@ -54,24 +54,24 @@ export function useLeaderboard(search: string = '', limit: number = 50) {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [search, limit]) // Add dependencies here
 
   // Initial load and search changes
   useEffect(() => {
     fetchLeaderboard(0, search)
-  }, [search, limit, fetchLeaderboard])
+  }, [fetchLeaderboard, search]) // Add fetchLeaderboard to dependencies
 
   // Load more function
-  const loadMore = () => {
+  const loadMore = useCallback(() => {
     if (!isLoading && data.hasMore) {
       fetchLeaderboard(offset + limit, search)
     }
-  }
+  }, [isLoading, data.hasMore, offset, limit, search, fetchLeaderboard])
 
   // Refresh function
-  const refresh = () => {
+  const refresh = useCallback(() => {
     fetchLeaderboard(0, search)
-  }
+  }, [fetchLeaderboard, search])
 
   return {
     data,
