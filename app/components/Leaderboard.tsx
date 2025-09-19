@@ -18,7 +18,7 @@ export function Leaderboard({ search }: LeaderboardProps) {
   useEffect(() => {
     const interval = setInterval(refresh, 30000)
     return () => clearInterval(interval)
-  }, [refresh])
+  }, [refresh]) // refresh is stable from useLeaderboard
 
   const getRankColor = (rank: number) => {
     if (rank === 1) return 'text-yellow-400 bg-yellow-400/20'

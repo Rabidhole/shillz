@@ -1,6 +1,21 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+
+interface EthereumProvider {
+  isMetaMask?: boolean
+  isCoinbaseWallet?: boolean
+  isWalletConnect?: boolean
+  isTrust?: boolean
+  isBraveWallet?: boolean
+  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>
+  on: (event: string, handler: (params: unknown) => void) => void
+}
+
+interface WalletInfo {
+  name: string
+  provider: EthereumProvider
+}
 
 interface WalletState {
   isConnected: boolean
@@ -29,33 +44,35 @@ export function useWallet() {
     
     if (typeof window !== 'undefined') {
       // MetaMask
-      if ((window as any).ethereum?.isMetaMask) {
-        wallets.push({ name: 'MetaMask', provider: (window as any).ethereum })
+      const ethereum = (window as { ethereum?: EthereumProvider }).ethereum
+      
+      if (ethereum?.isMetaMask) {
+        wallets.push({ name: 'MetaMask', provider: ethereum })
       }
       
       // Coinbase Wallet
-      if ((window as any).ethereum?.isCoinbaseWallet) {
-        wallets.push({ name: 'Coinbase Wallet', provider: (window as any).ethereum })
+      if (ethereum?.isCoinbaseWallet) {
+        wallets.push({ name: 'Coinbase Wallet', provider: ethereum })
       }
       
       // WalletConnect
-      if ((window as any).ethereum?.isWalletConnect) {
-        wallets.push({ name: 'WalletConnect', provider: (window as any).ethereum })
+      if (ethereum?.isWalletConnect) {
+        wallets.push({ name: 'WalletConnect', provider: ethereum })
       }
       
       // Trust Wallet
-      if ((window as any).ethereum?.isTrust) {
-        wallets.push({ name: 'Trust Wallet', provider: (window as any).ethereum })
+      if (ethereum?.isTrust) {
+        wallets.push({ name: 'Trust Wallet', provider: ethereum })
       }
       
       // Brave Wallet
-      if ((window as any).ethereum?.isBraveWallet) {
-        wallets.push({ name: 'Brave Wallet', provider: (window as any).ethereum })
+      if (ethereum?.isBraveWallet) {
+        wallets.push({ name: 'Brave Wallet', provider: ethereum })
       }
       
       // Generic Ethereum provider
-      if ((window as any).ethereum && wallets.length === 0) {
-        wallets.push({ name: 'Ethereum Wallet', provider: (window as any).ethereum })
+      if (ethereum && wallets.length === 0) {
+        wallets.push({ name: 'Ethereum Wallet', provider: ethereum })
       }
     }
     
@@ -133,11 +150,12 @@ export function useWallet() {
         }))
       })
 
-    } catch (err: any) {
-      if (err.code === 4001) {
+    } catch (err) {
+      const error = err as { code?: number; message?: string }
+      if (error.code === 4001) {
         setError('Connection rejected by user')
       } else {
-        setError(err.message || 'Failed to connect wallet')
+        setError(error.message || 'Failed to connect wallet')
       }
     } finally {
       setIsLoading(false)
@@ -185,12 +203,13 @@ export function useWallet() {
         method: 'wallet_switchEthereumChain',
         params: [{ chainId: `0x${chainId.toString(16)}` }]
       })
-    } catch (err: any) {
-      if (err.code === 4902) {
+    } catch (err) {
+      const error = err as { code?: number; message?: string }
+      if (error.code === 4902) {
         // Chain not added to wallet
         setError('Please add this chain to your wallet first')
       } else {
-        setError(err.message || 'Failed to switch chain')
+        setError(error.message || 'Failed to switch chain')
       }
     }
   }

@@ -2,11 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react'
 
-interface ShillBatch {
-  tokenId: string
-  count: number
-  lastUpdate: number
-}
+// Removed unused interface
 
 export function useShillBatcher() {
   const [pendingShills, setPendingShills] = useState<Map<string, number>>(new Map())
