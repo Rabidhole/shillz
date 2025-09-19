@@ -204,7 +204,7 @@ export function AdBookingCalendar() {
           })
 
           if (response.ok) {
-            const result = await response.json()
+            await response.json()
             alert('✅ Ad booking submitted successfully!\n\nYour ad is pending approval. Check the admin panel to approve it.\n\nAdmin panel: /admin')
             setShowBookingForm(false)
             setFormData({ title: '', imageUrl: '', linkUrl: '', telegramHandle: '' })

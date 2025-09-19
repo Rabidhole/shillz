@@ -15,6 +15,32 @@ const supabaseAdmin = createClient<Database>(
   }
 )
 
+interface BoosterPack {
+  id: string
+  name: string
+  description: string
+  price_ton: number
+  multiplier: number
+  duration_hours: number
+  max_uses: number | null
+  created_at: string
+  updated_at: string
+}
+
+interface UserBooster {
+  id: string
+  user_id: string
+  booster_pack_id: string
+  is_active: boolean
+  uses_remaining: number | null
+  expires_at: string
+  payment_id: string
+  ton_amount: number
+  created_at: string
+  updated_at: string
+  booster_pack?: BoosterPack
+}
+
 export async function GET(
   request: Request,
   context: { params: Promise<{ id: string }> }
@@ -58,8 +84,8 @@ export async function GET(
     }
 
     // Calculate total multiplier
-    const totalMultiplier = (boosters || []).reduce((total, booster) => {
-      return total + ((booster as any).booster_pack?.multiplier || 1) - 1
+    const totalMultiplier = (boosters || []).reduce((total, booster: UserBooster) => {
+      return total + (booster.booster_pack?.multiplier || 1) - 1
     }, 1)
 
     return NextResponse.json({ 

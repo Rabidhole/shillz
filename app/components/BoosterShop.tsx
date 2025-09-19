@@ -35,7 +35,7 @@ const BOOSTERS = [
   }
 ] as const
 
-export function BoosterShop({ userId = 'anonymous', telegram }: BoosterShopProps) {
+export function BoosterShop({ userId = 'anonymous' }: BoosterShopProps) {
   const { activeBoosters, totalMultiplier, nextExpiring } = useUserBoosters(userId)
   const { formatUsdWithTon, price: tonPrice, isLoading: isPriceLoading } = useTonPrice()
   const [isLoading, setIsLoading] = useState(false)
@@ -46,7 +46,7 @@ export function BoosterShop({ userId = 'anonymous', telegram }: BoosterShopProps
   // Check if we're in test mode
   const isTestMode = process.env.NODE_ENV === 'development'
 
-  const handlePurchase = async (packId: string, usdAmount: number) => {
+  const handlePurchase = async (packId: string) => {
     if (hasActiveBooster) {
       setError('You already have an active booster. Wait for it to expire before purchasing another one.')
       return

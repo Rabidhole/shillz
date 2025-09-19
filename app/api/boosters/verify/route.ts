@@ -15,8 +15,16 @@ const supabaseAdmin = createClient<Database>(
   }
 )
 
+interface TelegramPayload {
+  payload: string
+  ton_transaction_id: string
+  ton_amount: string
+  ton_receiver_address: string
+  hash: string
+}
+
 // Verify Telegram payment signature
-async function verifyTelegramPayment(payload: any) {
+async function verifyTelegramPayment(payload: TelegramPayload) {
   try {
     // Get the bot token from environment variables
     const botToken = process.env.TELEGRAM_BOT_TOKEN
@@ -67,7 +75,7 @@ export async function POST(request: Request) {
 
     // Parse the custom payload
     const customData = JSON.parse(paymentData.payload)
-    const { pack_id, user_id, usd_amount } = customData
+    const { pack_id, user_id } = customData
 
     // Get booster pack details
     const { data: boosterPack, error: boosterError } = await supabaseAdmin
