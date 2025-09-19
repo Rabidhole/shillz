@@ -20,13 +20,7 @@ export async function OPTIONS() {
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
 async function getOrCreateAnonymousUser() {
@@ -35,11 +29,7 @@ async function getOrCreateAnonymousUser() {
   const { error } = await supabaseAdmin
     .from('users_new')
     .insert({
-      id: anonymousId,
-      telegram_username: 'anonymous',
-      tier: 'degen',
-      total_shills: 0,
-      hot_shills: 0
+      telegram_username: 'anonymous'
     })
     .select()
     .single()
@@ -53,11 +43,11 @@ async function getOrCreateAnonymousUser() {
 
 export async function POST(request: Request) {
   try {
-    console.log('Received booster purchase request')
+    console.log('=== BOOSTER PURCHASE DEBUG START ===')
     const requestData = await request.json() as BoosterPurchaseRequest
-    console.log('Request data:', requestData)
+    console.log('Request data:', JSON.stringify(requestData, null, 2))
     const { id: boosterId, walletAddress, testMode } = requestData
-    console.log('Parsed request:', { boosterId, walletAddress, testMode })
+    console.log('Parsed values:', { boosterId, walletAddress, testMode })
 
     // In test mode, create a fake transaction
     const tonPayload = testMode ? {
@@ -80,9 +70,18 @@ export async function POST(request: Request) {
     }
 
     // Handle anonymous user
+    console.log('Processing user ID:', userId)
     const actualUserId = userId === 'anonymous' 
       ? await getOrCreateAnonymousUser()
       : userId
+    console.log('Actual user ID to use:', actualUserId)
+
+    if (!actualUserId) {
+      return NextResponse.json(
+        { error: 'Failed to create or identify user' },
+        { status: 400 }
+      )
+    }
 
     // Check if user already has an active booster
     const { data: activeBooster, error: activeError } = await supabaseAdmin
@@ -111,20 +110,16 @@ export async function POST(request: Request) {
     console.log('Looking up booster pack:', boosterId)
 
     // Get booster pack details
-    console.log('Looking up booster pack with ID:', boosterId)
     const { data: boosterPack, error: boosterError } = await supabaseAdmin
       .from('booster_packs')
       .select('*')
       .eq('id', boosterId)
       .single()
-    
-    if (boosterError) {
-      console.error('Booster lookup error:', boosterError)
-    } else {
-      console.log('Found booster pack:', boosterPack)
-    }
+
+    console.log('Booster pack query result:', { boosterPack, boosterError })
 
     if (boosterError || !boosterPack) {
+      console.error('Booster pack not found:', { boosterId, boosterError })
       return NextResponse.json(
         { error: 'Booster pack not found' },
         { status: 404 }
@@ -132,8 +127,8 @@ export async function POST(request: Request) {
     }
 
     // Skip payment verification in test mode
-    const paidAmount = testMode ? 0.15 : tonPayload!.amount / 1000000000 // Convert from nanoTON to TON
-    if (!testMode && paidAmount !== boosterPack.price_ton) {
+    const paidAmount = testMode ? 0.99 : tonPayload!.amount / 1000000000 // Convert from nanoTON to TON
+    if (!testMode && paidAmount !== boosterPack.price_usd) {
       return NextResponse.json(
         { error: 'Invalid payment amount' },
         { status: 400 }
@@ -145,16 +140,6 @@ export async function POST(request: Request) {
     expiresAt.setHours(expiresAt.getHours() + boosterPack.duration_hours)
 
     // Create user booster
-    console.log('Creating user booster:', {
-      user_id: actualUserId,
-      booster_pack_id: boosterPack.id,
-      expires_at: expiresAt.toISOString(),
-      is_active: true,
-      uses_remaining: boosterPack.max_uses,
-      payment_id: tonPayload!.transaction_id,
-      amount: paidAmount
-    })
-
     const { data: userBooster, error: createError } = await supabaseAdmin
       .from('user_boosters')
       .insert({
@@ -162,27 +147,15 @@ export async function POST(request: Request) {
         booster_pack_id: boosterPack.id,
         expires_at: expiresAt.toISOString(),
         is_active: true,
-        uses_remaining: boosterPack.max_uses,
-        payment_id: tonPayload!.transaction_id,
-        ton_amount: paidAmount
+        transaction_hash: tonPayload!.transaction_id
       })
       .select()
       .single()
 
     if (createError) {
-      console.error('Error creating user booster:', {
-        error: createError,
-        details: createError.details,
-        hint: createError.hint,
-        code: createError.code
-      })
+      console.error('Error creating user booster:', createError)
       return NextResponse.json(
-        { 
-          error: createError.message,
-          details: createError.details,
-          hint: createError.hint,
-          code: createError.code
-        },
+        { error: createError.message },
         { status: 400 }
       )
     }

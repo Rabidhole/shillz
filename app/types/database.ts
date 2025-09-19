@@ -82,15 +82,12 @@ export interface BoosterPack {
 
 export interface UserBooster {
     id: string;
-    user_id: string;
-    booster_pack_id: string;
-    is_active: boolean | null;
-    uses_remaining: number | null;
+    user_id: string | null;
+    booster_pack_id: string | null;
+    purchased_at: string | null;
     expires_at: string;
-    payment_id: string;
-    ton_amount: number;
-    created_at: string | null;
-    updated_at: string | null;
+    is_active: boolean | null;
+    transaction_hash: string | null;
 }
 
 export interface Database {
@@ -133,8 +130,8 @@ export interface Database {
             };
             user_boosters: {
                 Row: UserBooster;
-                Insert: Omit<UserBooster, 'id' | 'created_at' | 'updated_at'>;
-                Update: Partial<Omit<UserBooster, 'id' | 'created_at'>>;
+                Insert: Omit<UserBooster, 'id' | 'purchased_at'>;
+                Update: Partial<Omit<UserBooster, 'id' | 'purchased_at'>>;
             };
         };
     };
