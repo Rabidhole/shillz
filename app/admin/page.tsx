@@ -30,12 +30,6 @@ export default function AdminPage() {
   // Check if current user is admin
   const isAdmin = isConnected && address?.toLowerCase() === ADMIN_WALLET.toLowerCase()
 
-  useEffect(() => {
-    if (isAdmin) {
-      fetchPendingAds()
-    }
-  }, [isAdmin, fetchPendingAds])
-
   const fetchPendingAds = useCallback(async () => {
     // Only fetch if user is admin
     if (!isAdmin) {
@@ -67,6 +61,12 @@ export default function AdminPage() {
       setIsLoading(false)
     }
   }, [isAdmin])
+
+  useEffect(() => {
+    if (isAdmin) {
+      fetchPendingAds()
+    }
+  }, [isAdmin, fetchPendingAds])
 
   const handleApprove = async (adId: string) => {
     if (!address) {
