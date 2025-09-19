@@ -49,11 +49,8 @@ export async function POST(
     }
 
     // Approve the ad
-    type DbResult<T> = T extends PromiseLike<infer U> ? U : never
-    type AdSlotResponse = DbResult<ReturnType<typeof supabaseAdmin.from<'ad_slots'>>>
-    
     const query = supabaseAdmin.from('ad_slots')
-    const { data: approvedAd, error } = await (query as AdSlotResponse)
+    const { data: approvedAd, error } = await (query as any)
       .update(updateData)
       .eq('id', adId)
       .select()

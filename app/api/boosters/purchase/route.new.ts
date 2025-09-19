@@ -26,16 +26,13 @@ const supabaseAdmin = createClient<Database>(
 async function getOrCreateAnonymousUser() {
   const anonymousId = crypto.randomUUID()
 
-  type DbResult<T> = T extends PromiseLike<infer U> ? U : never
-  type UserResponse = DbResult<ReturnType<typeof supabaseAdmin.from<'users_new'>>>
-  
   const { error } = await (supabaseAdmin
     .from('users_new')
     .insert({
       telegram_username: 'anonymous'
     })
     .select()
-    .single()) as UserResponse
+    .single()) as any
 
   if (error && error.code !== '23505') {
     throw error
@@ -101,13 +98,11 @@ export async function POST(request: Request) {
     console.log('Looking up booster pack:', boosterId)
 
     // Get booster pack details
-    type BoosterResponse = DbResult<ReturnType<typeof supabaseAdmin.from<'booster_packs'>>>
-    
     const { data: boosterPack, error: boosterError } = await supabaseAdmin
       .from('booster_packs')
       .select('*')
       .eq('id', boosterId)
-      .single() as BoosterResponse
+      .single() as any
 
     if (boosterError || !boosterPack) {
       return NextResponse.json(
