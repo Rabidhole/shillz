@@ -10,8 +10,9 @@ interface BoosterShopProps {
   telegram?: any // Telegram WebApp object
 }
 
-const BOOSTERS = {
-  'quick-boost': {
+const BOOSTERS = [
+  {
+    id: '2x-1h',
     name: 'Quick Boost',
     description: 'Double your shill power for 1 hour! Perfect for quick pumps.',
     priceUsd: 0.99,
@@ -19,7 +20,8 @@ const BOOSTERS = {
     duration: 1,
     color: 'green'
   },
-  'power-boost': {
+  {
+    id: '4x-4h',
     name: 'Power Boost',
     description: 'Quadruple your shill power for 4 hours! Best value for serious shillers.',
     priceUsd: 2.99,
@@ -27,7 +29,7 @@ const BOOSTERS = {
     duration: 4,
     color: 'purple'
   }
-} as const
+] as const
 
 export function BoosterShop({ userId = 'anonymous', telegram }: BoosterShopProps) {
   const { activeBoosters, totalMultiplier, nextExpiring } = useUserBoosters(userId)
@@ -37,20 +39,12 @@ export function BoosterShop({ userId = 'anonymous', telegram }: BoosterShopProps
 
   const hasActiveBooster = activeBoosters.length > 0
 
+  // Check if we're in test mode
+  const isTestMode = process.env.NODE_ENV === 'development'
+
   const handlePurchase = async (packId: string, usdAmount: number) => {
     if (hasActiveBooster) {
       setError('You already have an active booster. Wait for it to expire before purchasing another one.')
-      return
-    }
-
-    if (!tonPrice) {
-      setError('Unable to get current TON price. Please try again.')
-      return
-    }
-
-    const tonAmount = convertUsdToTon(usdAmount)
-    if (!tonAmount) {
-      setError('Failed to calculate TON amount. Please try again.')
       return
     }
 
@@ -58,45 +52,48 @@ export function BoosterShop({ userId = 'anonymous', telegram }: BoosterShopProps
     setError(null)
 
     try {
-      // Convert TON to nanoTON for Telegram
-      const priceNanoTon = Math.floor(tonAmount * 1000000000)
-
-      // Create TON payment through Telegram
-      const tonResult = await telegram?.ton?.sendPayment({
-        amount: priceNanoTon,
-        comment: `Booster: ${packId}`,
-        payload: JSON.stringify({
-          type: 'booster_purchase',
-          pack_id: packId,
-          user_id: userId,
-          usd_amount: usdAmount
-        })
+      console.log('Attempting to purchase booster:', {
+        packId,
+        userId,
+        testMode: true
       })
 
-      if (!tonResult?.success) {
-        throw new Error('TON payment failed')
-      }
-
-      // Send payment info to our API
+      // In test mode, simulate a successful payment
       const response = await fetch('/api/boosters/purchase', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          packId,
-          userId,
-          tonPayload: {
-            transaction_id: tonResult.transaction_id,
-            amount: priceNanoTon,
-            payload: tonResult.payload
-          }
+          id: packId,
+          paymentMethod: 'test',
+          walletAddress: userId,
+          testMode: true
         }),
       })
 
+      const data = await response.json()
+      console.log('Purchase response:', {
+        status: response.status,
+        ok: response.ok,
+        data
+      })
+
+      console.log('Purchase response:', {
+        status: response.status,
+        ok: response.ok,
+        data
+      })
+
       if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || 'Failed to purchase booster')
+        const errorMessage = data.error || 'Failed to purchase booster'
+        console.error('Purchase error details:', {
+          message: errorMessage,
+          details: data.details,
+          hint: data.hint,
+          code: data.code
+        })
+        throw new Error(errorMessage)
       }
 
       // Refresh page to show new booster
@@ -129,9 +126,16 @@ export function BoosterShop({ userId = 'anonymous', telegram }: BoosterShopProps
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">Booster Shop</h1>
+        <h1 className="text-3xl font-bold text-white mb-2">
+          Booster Shop {isTestMode && <span className="text-yellow-400 text-sm">🧪 TEST MODE</span>}
+        </h1>
         <p className="text-gray-400">Power up your shills with these boosters!</p>
-        {tonPrice && (
+        {isTestMode ? (
+          <div className="mt-2 text-sm">
+            <p className="text-yellow-400">Test Mode Active - No real payments required</p>
+            <p className="text-gray-500">Testing with user ID: {userId}</p>
+          </div>
+        ) : tonPrice && (
           <p className="text-sm text-gray-500 mt-2">
             Current TON Price: ${tonPrice.usd.toFixed(2)}
           </p>
@@ -160,15 +164,15 @@ export function BoosterShop({ userId = 'anonymous', telegram }: BoosterShopProps
 
       {/* Booster Cards */}
       <div className="grid md:grid-cols-2 gap-6">
-        {Object.entries(BOOSTERS).map(([id, booster]) => (
+        {BOOSTERS.map((booster) => (
           <div 
-            key={id}
+            key={booster.id}
             className={`bg-gradient-to-br from-${booster.color}-900/50 to-${booster.color}-700/30 rounded-xl p-6 border border-${booster.color}-500/20`}
           >
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-xl font-bold text-white">{booster.name}</h3>
-                {id === 'power-boost' && (
+                {booster.id === '4x-4h' && (
                   <div className={`text-${booster.color}-400 text-sm`}>Best Value!</div>
                 )}
               </div>
@@ -187,17 +191,17 @@ export function BoosterShop({ userId = 'anonymous', telegram }: BoosterShopProps
               <ul className="text-sm text-gray-400 space-y-2">
                 <li>✓ {booster.duration} hour{booster.duration > 1 ? 's' : ''} of boosted shills</li>
                 <li>✓ Instant activation</li>
-                {id === 'power-boost' && <li>✓ Best value per hour</li>}
+                {booster.id === '4x-4h' && <li>✓ Best value per hour</li>}
                 {booster.multiplier === 4 && <li>✓ Maximum power</li>}
               </ul>
               <Button
-                onClick={() => handlePurchase(id, booster.priceUsd)}
-                disabled={isLoading || hasActiveBooster || isPriceLoading}
+                onClick={() => handlePurchase(booster.id, booster.priceUsd)}
+                disabled={isLoading || hasActiveBooster}
                 className={`w-full bg-${booster.color}-600 hover:bg-${booster.color}-700 disabled:opacity-50`}
               >
                 {isLoading ? 'Processing...' : 
                  hasActiveBooster ? 'Already Have Active Booster' : 
-                 isPriceLoading ? 'Loading Price...' : 
+                 isTestMode ? '🧪 Test Purchase' : 
                  'Buy Now'}
               </Button>
             </div>
@@ -207,8 +211,11 @@ export function BoosterShop({ userId = 'anonymous', telegram }: BoosterShopProps
 
       {/* Value Comparison */}
       <div className="mt-8 text-center text-sm text-gray-400">
-        <p>Power Boost: ${(BOOSTERS['power-boost'].priceUsd / BOOSTERS['power-boost'].duration).toFixed(2)} per hour of 4x boost</p>
-        <p>Quick Boost: ${(BOOSTERS['quick-boost'].priceUsd / BOOSTERS['quick-boost'].duration).toFixed(2)} per hour of 2x boost</p>
+        {BOOSTERS.map(booster => (
+          <p key={booster.id}>
+            {booster.name}: ${(booster.priceUsd / booster.duration).toFixed(2)} per hour of {booster.multiplier}x boost
+          </p>
+        ))}
         {tonPrice && (
           <p className="mt-2 text-xs">
             Prices updated {new Date(tonPrice.lastUpdated).toLocaleTimeString()}

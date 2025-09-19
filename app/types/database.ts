@@ -43,6 +43,21 @@ export interface HotToken extends Token {
     hot_rank: number;
 }
 
+export interface AdSlot {
+    id: string;
+    title: string;
+    image_url: string;
+    link_url: string;
+    telegram_handle: string;
+    start_date: string;
+    end_date: string;
+    price_ton: number;
+    ton_amount: number;
+    is_approved: boolean;
+    created_at: string;
+    updated_at: string;
+}
+
 export interface Database {
     public: {
         Tables: {
@@ -65,6 +80,11 @@ export interface Database {
                 Row: LeaderboardSnapshot;
                 Insert: Omit<LeaderboardSnapshot, 'id' | 'snapshot_time'>;
                 Update: Partial<Omit<LeaderboardSnapshot, 'id' | 'snapshot_time'>>;
+            };
+            ad_slots: {
+                Row: AdSlot;
+                Insert: Omit<AdSlot, 'id' | 'created_at' | 'updated_at' | 'is_approved'>;
+                Update: Partial<Omit<AdSlot, 'id' | 'created_at'>>;
             };
         };
     };

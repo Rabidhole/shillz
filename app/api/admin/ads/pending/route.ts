@@ -17,22 +17,36 @@ const supabaseAdmin = createClient<Database>(
 
 export async function GET() {
   try {
+    console.log('Fetching pending ads from database...')
     const { data: pendingAds, error } = await supabaseAdmin
       .from('ad_slots')
       .select('*')
-      .eq('is_active', true)
       .eq('is_approved', false)
       .order('created_at', { ascending: false })
 
     if (error) {
       console.error('Error fetching pending ads:', error)
-      return NextResponse.json(
-        { error: error.message }, 
-        { status: 400 }
+      return new NextResponse(
+        JSON.stringify({ error: error.message }), 
+        { 
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }
       )
     }
 
-    return NextResponse.json(pendingAds || [])
+    console.log('Found pending ads:', pendingAds?.length || 0)
+    return new NextResponse(
+      JSON.stringify(pendingAds || []),
+      { 
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      }
+    )
 
   } catch (error) {
     console.error('Error in pending ads route:', error)

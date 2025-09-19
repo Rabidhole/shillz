@@ -18,16 +18,22 @@ interface TokenShillButtonProps {
 const SHILLMOJI_POOL = Array.from({ length: 9 }, (_, i) => `/shillmojis/${i + 1}.png`)
 
 export function TokenShillButton({ tokenId, currentShills, userId = 'anonymous', onShillSuccess }: TokenShillButtonProps) {
+  // Reset optimistic count when real count updates
+  useEffect(() => {
+    setOptimisticShills(0)
+  }, [currentShills])
   const { totalMultiplier, hasActiveBoosters } = useUserBoosters(userId)
-  const [localCount, setLocalCount] = useState(0)
   const [targetImage, setTargetImage] = useState('')
   const [imageOptions, setImageOptions] = useState<string[]>([])
   const [isAnimating, setIsAnimating] = useState(false)
   const [attempts, setAttempts] = useState(0)
   const [showPlusOne, setShowPlusOne] = useState(false)
   const [plusOneValue, setPlusOneValue] = useState(1)
+  const [isShilling, setIsShilling] = useState(false)
+  const [optimisticShills, setOptimisticShills] = useState(0)
 
-  const displayCount = currentShills + localCount
+  // Optimistic count that will be validated by real-time updates
+  const displayCount = currentShills + optimisticShills
 
   const generateImageChallenge = () => {
     // Pick a random target image
@@ -61,27 +67,20 @@ export function TokenShillButton({ tokenId, currentShills, userId = 'anonymous',
   }
 
   const handleImageClick = async (selectedImage: string) => {
-    if (selectedImage === targetImage) {
-      // Correct image selected!
+    if (selectedImage === targetImage && !isShilling) {
+      // Prevent double-clicks
+      setIsShilling(true)
       setIsAnimating(true)
       
-      // INSTANT: Calculate effective shills
+      // Calculate effective shills
       const effectiveShills = Math.floor(totalMultiplier)
       
-      // INSTANT: Update local count immediately
-      setLocalCount(prev => prev + effectiveShills)
-      
-      // INSTANT: Show +1 animation
+      // Immediate optimistic update
+      setOptimisticShills(prev => prev + effectiveShills)
       showPlusOneAnimation(effectiveShills)
-      
-      // INSTANT: Generate new challenge immediately
-      generateImageChallenge()
-      setAttempts(0)
-      
-      // INSTANT: Trigger success callback
       onShillSuccess?.()
       
-      // BACKGROUND: Send to database (don't await)
+      // Send to database in background
       fetch('/api/tokens/shill', {
         method: 'POST',
         headers: {
@@ -94,12 +93,17 @@ export function TokenShillButton({ tokenId, currentShills, userId = 'anonymous',
         }),
       }).catch(error => {
         console.error('Error shilling token:', error)
-        // On error, revert the local count
-        setLocalCount(prev => prev - effectiveShills)
+        // Revert optimistic update on error
+        setOptimisticShills(prev => prev - effectiveShills)
       })
-      
-      // Reset animation after brief delay
-      setTimeout(() => setIsAnimating(false), 200)
+
+      // Reset UI states immediately
+      setTimeout(() => {
+        setIsShilling(false)
+        setIsAnimating(false)
+        generateImageChallenge()
+        setAttempts(0)
+      }, 200)
     } else {
       // Wrong image - instant feedback
       setAttempts(prev => prev + 1)

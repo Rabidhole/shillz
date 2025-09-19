@@ -26,9 +26,17 @@ export async function POST(
     const { walletAddress } = await request.json()
 
     // Verify admin wallet
+    console.log('Attempting admin verification:')
+    console.log('Provided wallet:', walletAddress)
+    console.log('Admin wallet:', ADMIN_WALLET)
+    console.log('Lowercase comparison:', {
+      provided: walletAddress?.toLowerCase(),
+      admin: ADMIN_WALLET.toLowerCase()
+    })
+
     if (!walletAddress || walletAddress.toLowerCase() !== ADMIN_WALLET.toLowerCase()) {
       return NextResponse.json(
-        { error: 'Unauthorized: Admin access required' },
+        { error: `Unauthorized: Admin access required. Connected: ${walletAddress}` },
         { status: 403 }
       )
     }
@@ -36,10 +44,10 @@ export async function POST(
     // Approve the ad
     const { data: approvedAd, error } = await supabaseAdmin
       .from('ad_slots')
-      .update({ 
+      .update({
         is_approved: true,
         updated_at: new Date().toISOString()
-      })
+      } as any)
       .eq('id', adId)
       .select()
       .single()

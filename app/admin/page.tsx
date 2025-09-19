@@ -23,6 +23,7 @@ interface AdSlot {
 }
 
 export default function AdminPage() {
+  console.log('Admin page rendering...')
   const { isConnected, address } = useReownWallet()
   const [pendingAds, setPendingAds] = useState<AdSlot[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -44,13 +45,25 @@ export default function AdminPage() {
     }
 
     try {
-      const response = await fetch('/api/admin/ads/pending')
-      if (response.ok) {
-        const ads = await response.json()
-        setPendingAds(ads)
+      console.log('Fetching pending ads...')
+      const response = await fetch('/api/admin/ads/pending', {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache'
+        }
+      })
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
       }
+      
+      const ads = await response.json()
+      console.log('Received ads:', ads)
+      setPendingAds(Array.isArray(ads) ? ads : [])
     } catch (error) {
       console.error('Error fetching pending ads:', error)
+      setPendingAds([])
     } finally {
       setIsLoading(false)
     }
@@ -61,6 +74,10 @@ export default function AdminPage() {
       alert('❌ Wallet not connected')
       return
     }
+
+    console.log('Attempting to approve ad with wallet:', address)
+    console.log('Expected admin wallet:', ADMIN_WALLET)
+    console.log('Is admin?', isAdmin)
 
     try {
       const response = await fetch(`/api/admin/ads/${adId}/approve`, {

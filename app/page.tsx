@@ -5,6 +5,7 @@ import { SearchBar } from './components/SearchBar'
 import { Leaderboard } from './components/Leaderboard'
 import { GlobalBoosterStatus } from './components/GlobalBoosterStatus'
 import { AdBanner } from './components/AdBanner'
+import { TokenSubmitPanel } from './components/TokenSubmitPanel'
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState('')
@@ -31,6 +32,15 @@ export default function Home() {
             />
           </div>
         </div>
+
+        {/* Token Submit Panel */}
+        <TokenSubmitPanel 
+          className="mb-6 max-w-2xl mx-auto" 
+          onSuccess={() => {
+            // Refresh the leaderboard when a new token is added
+            window.location.reload()
+          }}
+        />
 
         {/* Leaderboard */}
         <Leaderboard search={searchQuery} />

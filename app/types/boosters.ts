@@ -22,7 +22,8 @@ export interface UserBooster {
 }
 
 export interface BoosterPurchaseRequest {
-  boosterPackId: string
+  id: string
   paymentMethod: 'crypto' | 'card'
   walletAddress?: string
+  testMode?: boolean
 }

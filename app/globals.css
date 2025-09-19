@@ -33,8 +33,17 @@
 }
 
 /* ReOwn AppKit font fallbacks to prevent CORS warnings */
-w3m-modal, w3m-button, [data-w3m] {
+w3m-modal, w3m-button, [data-w3m], [data-reown], .reown-font {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+/* Override Reown's font loading */
+@font-face {
+  font-family: 'KHTeka';
+  src: local('-apple-system');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
 }
 
 :root {

@@ -44,6 +44,18 @@ export function ClientLayout({ children }: ClientLayoutProps) {
               <span className="text-xl font-bold text-white">Shillzzz</span>
             </Link>
             <div className="flex items-center gap-4">
+              <Link 
+                href="/advertise" 
+                className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors"
+              >
+                💎 Advertise
+              </Link>
+              <Link 
+                href="/boosters" 
+                className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors"
+              >
+                🚀 Boosters
+              </Link>
               <WalletConnect />
               {isAdmin && (
                 <Link 
@@ -53,12 +65,6 @@ export function ClientLayout({ children }: ClientLayoutProps) {
                   🛡️ Admin
                 </Link>
               )}
-              <Link 
-                href="/boosters" 
-                className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors"
-              >
-                🚀 Boosters
-              </Link>
             </div>
           </div>
         </nav>

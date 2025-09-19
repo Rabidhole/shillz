@@ -18,15 +18,11 @@ const isTestMode = process.env.NODE_ENV === 'development' || process.env.NEXT_PU
 const PRICING_TIERS = isTestMode ? [
   { duration_days: 1, base_price_usd: 0.01, multiplier: 1.0 },      // $0.01/day - test mode
   { duration_days: 3, base_price_usd: 0.03, multiplier: 1.0 },      // $0.03 total - test mode
-  { duration_days: 7, base_price_usd: 0.07, multiplier: 1.0 },      // $0.07 total - test mode
-  { duration_days: 14, base_price_usd: 0.14, multiplier: 1.0 },     // $0.14 total - test mode
-  { duration_days: 30, base_price_usd: 0.30, multiplier: 1.0 }      // $0.30 total - test mode
+  { duration_days: 7, base_price_usd: 0.07, multiplier: 1.0 }       // $0.07 total - test mode
 ] : [
   { duration_days: 1, base_price_usd: 49.99, multiplier: 1.0 },     // $49.99/day - no discount
   { duration_days: 3, base_price_usd: 139.99, multiplier: 0.93 },   // $46.66/day - 7% off
-  { duration_days: 7, base_price_usd: 314.99, multiplier: 0.90 },   // $44.99/day - 10% off
-  { duration_days: 14, base_price_usd: 594.99, multiplier: 0.85 },  // $42.50/day - 15% off
-  { duration_days: 30, base_price_usd: 1049.99, multiplier: 0.70 }  // $34.99/day - 30% off
+  { duration_days: 7, base_price_usd: 314.99, multiplier: 0.90 }    // $44.99/day - 10% off
 ]
 
 export function AdBookingCalendar() {
@@ -272,7 +268,7 @@ export function AdBookingCalendar() {
       {/* Pricing Tiers - Instant Display */}
       <div className="bg-gray-900/50 border border-gray-700 rounded-lg p-6">
         <h2 className="text-2xl font-bold text-white mb-4">💰 Pricing Tiers</h2>
-        <div className="grid md:grid-cols-5 gap-4">
+        <div className="grid md:grid-cols-3 gap-4">
           {PRICING_TIERS.map((tier) => (
             <div key={tier.duration_days} className="bg-gray-800/50 rounded-lg p-4 text-center border border-gray-600">
               <div className="text-lg font-bold text-white mb-1">
@@ -311,25 +307,25 @@ export function AdBookingCalendar() {
           </h3>
           <div className="flex flex-wrap gap-3">
             <Button
-              onClick={() => handleBulkSelect(calendarDays[0], 7)}
+              onClick={() => handleBulkSelect(calendarDays[0], 1)}
               className="bg-blue-600 hover:bg-blue-700 text-sm"
               size="sm"
             >
-              📦 7 Days (${PRICING_TIERS.find(t => t.duration_days === 7)?.base_price_usd.toFixed(2)})
+              📦 1 Day (${PRICING_TIERS.find(t => t.duration_days === 1)?.base_price_usd.toFixed(2)})
             </Button>
             <Button
-              onClick={() => handleBulkSelect(calendarDays[0], 14)}
+              onClick={() => handleBulkSelect(calendarDays[0], 3)}
               className="bg-green-600 hover:bg-green-700 text-sm"
               size="sm"
             >
-              📦 14 Days (${PRICING_TIERS.find(t => t.duration_days === 14)?.base_price_usd.toFixed(2)})
+              📦 3 Days (${PRICING_TIERS.find(t => t.duration_days === 3)?.base_price_usd.toFixed(2)})
             </Button>
             <Button
-              onClick={() => handleBulkSelect(calendarDays[0], 30)}
+              onClick={() => handleBulkSelect(calendarDays[0], 7)}
               className="bg-purple-600 hover:bg-purple-700 text-sm"
               size="sm"
             >
-              📦 30 Days (${PRICING_TIERS.find(t => t.duration_days === 30)?.base_price_usd.toFixed(2)})
+              📦 7 Days (${PRICING_TIERS.find(t => t.duration_days === 7)?.base_price_usd.toFixed(2)})
             </Button>
             <Button
               onClick={clearSelection}

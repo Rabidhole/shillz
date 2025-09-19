@@ -9,11 +9,11 @@ interface AdData {
   id: string
   title: string
   description: string
-  imageUrl: string
-  linkUrl: string
-  isActive: boolean
-  startDate: string
-  endDate: string
+  image_url: string
+  link_url: string
+  is_approved: boolean
+  start_date: string
+  end_date: string
 }
 
 export function AdBanner() {
@@ -80,39 +80,29 @@ export function AdBanner() {
   }
 
   return (
-    <div className="relative bg-gradient-to-r from-gray-900/50 to-gray-800/50 border border-gray-700/50 rounded-lg overflow-hidden mb-6 hover:border-gray-600/50 transition-all duration-200">
-      {/* AD Notifier */}
-      <div className="absolute top-2 left-2 bg-gray-800/80 text-gray-300 text-xs px-2 py-1 rounded z-10">
-        AD
-      </div>
+    <div className="max-w-[600px] mx-auto">
+      <Link 
+        href={currentAd.link_url} 
+        target="_blank" 
+        rel="noopener noreferrer"
+        className="block relative mb-6 group"
+      >
+        <div className="relative w-full aspect-[4/1] bg-gradient-to-r from-gray-900/50 to-gray-800/50 border border-gray-700/50 rounded-lg overflow-hidden hover:border-gray-600/50 transition-all duration-200">
+          {/* AD Notifier */}
+          <div className="absolute top-2 left-2 bg-gray-800/80 text-gray-300 text-xs px-2 py-1 rounded z-10">
+            AD
+          </div>
 
-      <Link href={currentAd.linkUrl} target="_blank" rel="noopener noreferrer">
-        <div className="flex items-center gap-4 p-4">
-          {/* Ad Image */}
-          <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
+          {/* Full-width Ad Image */}
+          <div className="relative w-full h-full">
             <Image
-              src={currentAd.imageUrl}
+              src={currentAd.image_url}
               alt={currentAd.title}
               fill
               className="object-cover"
+              sizes="(max-width: 768px) 100vw, 600px"
+              priority
             />
-          </div>
-
-          {/* Ad Content */}
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-white text-lg mb-1 truncate">
-              {currentAd.title}
-            </h3>
-            <p className="text-gray-300 text-sm line-clamp-2">
-              {currentAd.description}
-            </p>
-          </div>
-
-          {/* CTA */}
-          <div className="flex-shrink-0">
-            <div className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-              Learn More →
-            </div>
           </div>
         </div>
       </Link>
