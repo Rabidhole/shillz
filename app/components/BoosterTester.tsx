@@ -22,7 +22,8 @@ export function BoosterTester() {
         const response = await fetch('/api/boosters')
         if (response.ok) {
           const data = await response.json()
-          setAvailableBoosters(data)
+          // API returns { boosters: BoosterPack[] }
+          setAvailableBoosters(data.boosters || [])
         }
       } catch (error) {
         console.error('Error fetching boosters:', error)

@@ -23,13 +23,22 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-async function getOrCreateUser(walletAddress: string) {
-  // First try to find existing user by wallet address (if users_new has wallet_address field)
-  // For now, just create a new user with the wallet as telegram_username
+function normalizeUsername(input: string | null | undefined): string {
+  const raw = (input || '').trim()
+  const isDev = process.env.NODE_ENV === 'development'
+  if (!raw) {
+    return isDev ? '@dev-anonymous' : 'anonymous'
+  }
+  if (raw.startsWith('@')) return raw
+  // If running locally and given a wallet or plain id, fabricate a dev username
+  return isDev ? `@dev-${raw}` : raw
+}
+
+async function getOrCreateUser(telegramUsername: string) {
   const { data: existingUser, error: findError } = await supabaseAdmin
     .from('users_new')
     .select('id')
-    .eq('telegram_username', walletAddress)
+    .eq('telegram_username', telegramUsername)
     .single()
 
   if (findError && findError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
@@ -45,7 +54,7 @@ async function getOrCreateUser(walletAddress: string) {
   const { data: newUser, error: createError } = await supabaseAdmin
     .from('users_new')
     .insert({
-      telegram_username: walletAddress
+      telegram_username: telegramUsername
     })
     .select('id')
     .single()
@@ -65,7 +74,8 @@ export async function POST(request: Request) {
     const requestData = await request.json() as BoosterPurchaseRequest
     console.log('Request data:', JSON.stringify(requestData, null, 2))
     const { id: boosterId, walletAddress, testMode } = requestData
-    console.log('Parsed values:', { boosterId, walletAddress, testMode })
+    const username = normalizeUsername(walletAddress)
+    console.log('Parsed values:', { boosterId, walletAddress, normalizedUsername: username, testMode })
 
     // In test mode, create a fake transaction
     const tonPayload = testMode ? {
@@ -77,7 +87,7 @@ export async function POST(request: Request) {
       })
     } : null
 
-    const userId = walletAddress
+    const userId = username
 
     // Skip TON verification in test mode
     if (!testMode && (!tonPayload || !tonPayload.payload || !tonPayload.transaction_id)) {
@@ -88,7 +98,7 @@ export async function POST(request: Request) {
     }
 
     // Handle user creation/lookup
-    console.log('Processing user ID:', userId)
+    console.log('Processing user (telegram username):', userId)
     const actualUserId = await getOrCreateUser(userId || 'anonymous')
     console.log('Actual user ID to use:', actualUserId)
 

@@ -35,11 +35,22 @@ const BOOSTERS = [
   }
 ] as const
 
+function normalizeUsername(input?: string): string {
+  const raw = (input || '').trim()
+  const isDev = process.env.NODE_ENV === 'development'
+  if (!raw) return isDev ? '@dev-anonymous' : 'anonymous'
+  if (raw.startsWith('@')) return raw
+  return isDev ? `@dev-${raw}` : raw
+}
+
 export function BoosterShop({ userId = 'anonymous' }: BoosterShopProps) {
-  const { activeBoosters, totalMultiplier, nextExpiring } = useUserBoosters(userId)
+  const normalizedUser = normalizeUsername(userId)
+  const { activeBoosters, totalMultiplier, nextExpiring } = useUserBoosters(normalizedUser)
   const { formatUsdWithTon, price: tonPrice, isLoading: isPriceLoading } = useTonPrice()
   const [loadingBoosterId, setLoadingBoosterId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [showSuccess, setShowSuccess] = useState<{ open: boolean; packId?: string }>(() => ({ open: false }))
+  const [showFailure, setShowFailure] = useState<{ open: boolean; message?: string }>(() => ({ open: false }))
 
   const hasActiveBooster = activeBoosters.length > 0
 
@@ -49,6 +60,7 @@ export function BoosterShop({ userId = 'anonymous' }: BoosterShopProps) {
   const handlePurchase = async (packId: string) => {
     if (hasActiveBooster) {
       setError('You already have an active booster. Wait for it to expire before purchasing another one.')
+      setShowFailure({ open: true, message: 'You already have an active booster. Please wait until it expires.' })
       return
     }
 
@@ -99,15 +111,14 @@ export function BoosterShop({ userId = 'anonymous' }: BoosterShopProps) {
           fullError: data
         })
         
+        setShowFailure({ open: true, message: errorMessage })
         throw new Error(errorMessage)
       }
 
       // Success - show success message briefly then refresh
       setError(null)
       console.log('Booster purchased successfully!')
-      
-      // Refresh page to show new booster
-      window.location.reload()
+      setShowSuccess({ open: true, packId })
     } catch (error) {
       console.error('Error purchasing booster:', error)
       setError(error instanceof Error ? error.message : 'Failed to purchase booster. Please try again.')
@@ -140,12 +151,13 @@ export function BoosterShop({ userId = 'anonymous' }: BoosterShopProps) {
           Booster Shop {isTestMode && <span className="text-yellow-400 text-sm">🧪 TEST MODE</span>}
         </h1>
         <p className="text-gray-400">Power up your shills with these boosters!</p>
-        {isTestMode ? (
-          <div className="mt-2 text-sm">
+        <div className="mt-2 text-sm">
+          <p className="text-gray-400">Logged in as: <span className="text-white font-mono">{normalizedUser}</span></p>
+          {isTestMode && (
             <p className="text-yellow-400">Test Mode Active - No real payments required</p>
-            <p className="text-gray-500">Testing with user ID: {userId}</p>
-          </div>
-        ) : tonPrice && (
+          )}
+        </div>
+        {tonPrice && (
           <p className="text-sm text-gray-500 mt-2">
             Current TON Price: ${tonPrice.usd.toFixed(2)}
           </p>
@@ -169,6 +181,45 @@ export function BoosterShop({ userId = 'anonymous' }: BoosterShopProps) {
       {error && (
         <div className="mb-8 p-4 bg-red-900/20 rounded-lg text-red-400">
           {error}
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showSuccess.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-gray-900 border border-green-500/30 rounded-xl p-6 w-full max-w-md">
+            <div className="text-2xl font-bold text-green-400 mb-2">Purchase Successful</div>
+            <div className="text-gray-300 mb-6">Your booster {showSuccess.packId ? `(${showSuccess.packId})` : ''} is now active. Enjoy the boost!</div>
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                className="bg-green-600 hover:bg-green-700"
+                onClick={() => {
+                  setShowSuccess({ open: false })
+                  window.location.reload()
+                }}
+              >
+                OK
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Failure Modal */}
+      {showFailure.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-gray-900 border border-red-500/30 rounded-xl p-6 w-full max-w-md">
+            <div className="text-2xl font-bold text-red-400 mb-2">Purchase Failed</div>
+            <div className="text-gray-300 mb-6">{showFailure.message || 'We could not complete your purchase. Please try again.'}</div>
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => setShowFailure({ open: false })}
+              >
+                Close
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { useReownWallet } from '../hooks/useReownWallet'
+import { PotProgress } from '../components/PotProgress'
 
 const ADMIN_WALLET = '0x18521c6f092B2261f7E2771A4D02c3cC7010DDE3'
 
@@ -197,6 +198,26 @@ export default function AdminPage() {
           </p>
           <div className="text-xs text-green-400 mt-2">
             ✅ Authenticated as admin: {address}
+          </div>
+          <div className="mt-6 max-w-2xl mx-auto">
+            <PotProgress />
+            <div className="mt-3 flex items-center justify-center gap-3">
+              <Button
+                className="bg-blue-600 hover:bg-blue-700"
+                onClick={async () => {
+                  try {
+                    const res = await fetch('/api/pot/snapshot', { method: 'POST' })
+                    const json = await res.json()
+                    if (!res.ok) throw new Error(json?.error || 'Snapshot failed')
+                    alert(`✅ Snapshot: ${JSON.stringify(json)}`)
+                  } catch (e) {
+                    alert(`❌ ${e instanceof Error ? e.message : 'Snapshot error'}`)
+                  }
+                }}
+              >
+                Create Snapshot Now
+              </Button>
+            </div>
           </div>
         </div>
 
