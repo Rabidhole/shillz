@@ -3,9 +3,25 @@
 import { useState } from 'react'
 import { useReownWallet } from '../hooks/useReownWallet'
 
+interface DebugData {
+  database?: {
+    boosterPacks?: unknown[]
+    users?: unknown[]
+    userBoosters?: unknown[]
+  }
+  testBooster?: { success?: boolean } & Record<string, unknown>
+  currentUser?: {
+    found?: boolean
+    message?: string
+    user?: { telegram_username?: string }
+    activeBoosters?: unknown[]
+    allBoosters?: unknown[]
+  } & Record<string, unknown>
+}
+
 export default function DebugBoostersPage() {
   const { address } = useReownWallet()
-  const [debugData, setDebugData] = useState<any>(null)
+  const [debugData, setDebugData] = useState<DebugData | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -171,7 +187,7 @@ export default function DebugBoostersPage() {
           <h3 className="text-yellow-400 font-bold mb-2">Instructions</h3>
           <ol className="text-yellow-300 text-sm space-y-1">
             <li>1. Connect your wallet first</li>
-            <li>2. Click "Run Full Debug" to check everything</li>
+            <li>2. Click &quot;Run Full Debug&quot; to check everything</li>
             <li>3. Check the console for detailed logs</li>
             <li>4. Look at the results above to identify issues</li>
             <li>5. If test booster fails, check database schema</li>
