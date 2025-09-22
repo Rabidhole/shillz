@@ -38,7 +38,7 @@ export default function Home() {
         {/* User's Active Booster */}
         {address && (
           <ActiveBoosterDisplay 
-            userId={address} 
+            userId={normalizeUsername(address || undefined)} 
             className="max-w-md mx-auto mb-4"
           />
         )}
@@ -80,7 +80,7 @@ export default function Home() {
 
         {/* Leaderboard */}
         <div className="mb-2 text-right text-xs text-gray-400">
-          User: <span className="text-white font-mono">{normalizeUsername(address)}</span>
+          User: <span className="text-white font-mono">{normalizeUsername(address || undefined)}</span>
         </div>
         <Leaderboard search={searchQuery} />
       </div>
