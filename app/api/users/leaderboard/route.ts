@@ -47,7 +47,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: userErr.message }, { status: 400 })
     }
 
-    let currentUser = userRow || null
+    const currentUser = userRow || null
     let currentRank: number | null = null
 
     if (currentUser) {

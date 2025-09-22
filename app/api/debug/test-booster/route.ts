@@ -14,11 +14,12 @@ export async function GET() {
     console.log('Test wallet address:', testWalletAddress)
 
     // Step 1: Find or create user
-    let { data: user, error: userError } = await supabaseAdmin
+    const { data: userRow, error: userError } = await supabaseAdmin
       .from('users_new')
       .select('*')
       .eq('telegram_username', testWalletAddress)
       .single()
+    let user = userRow
 
     if (userError && userError.code === 'PGRST116') {
       console.log('User not found, creating...')
