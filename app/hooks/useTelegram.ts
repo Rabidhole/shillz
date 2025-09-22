@@ -23,15 +23,18 @@ export function useTelegramUser() {
   const [username, setUsername] = useState<string | null>(null)
 
   useEffect(() => {
-    try {
-      const tg = typeof window !== 'undefined' ? window.Telegram : undefined
-      const handle = tg?.WebApp?.initDataUnsafe?.user?.username
-      if (handle && typeof handle === 'string' && handle.trim().length > 0) {
-        setUsername(`@${handle.replace(/^@/, '')}`)
-      }
-    } catch {
-      // ignore
+    if (typeof window === 'undefined') return
+    const read = () => {
+      try {
+        const handle = window.Telegram?.WebApp?.initDataUnsafe?.user?.username
+        if (handle && typeof handle === 'string' && handle.trim().length > 0) {
+          setUsername(`@${handle.replace(/^@/, '')}`)
+        }
+      } catch {}
     }
+    // read after interactive to avoid SSR mismatch
+    const id = setTimeout(read, 0)
+    return () => clearTimeout(id)
   }, [])
 
   return { username }
