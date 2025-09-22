@@ -47,7 +47,21 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: userErr.message }, { status: 400 })
     }
 
-    const currentUser = userRow || null
+    // If user doesn't exist yet, create a placeholder with 0 shills so they see their rank
+    let currentUser = userRow || null
+    if (!currentUser) {
+      const { data: created, error: createErr } = await supabaseAdmin
+        .from('users_new')
+        .insert({ telegram_username: username, tier: 'degen', total_shills: 0 })
+        .select('telegram_username, total_shills')
+        .single()
+
+      if (createErr && createErr.code !== '23505') { // ignore conflict if created concurrently
+        return NextResponse.json({ error: createErr.message }, { status: 400 })
+      }
+
+      currentUser = created || { telegram_username: username, total_shills: 0 }
+    }
     let currentRank: number | null = null
 
     if (currentUser) {
