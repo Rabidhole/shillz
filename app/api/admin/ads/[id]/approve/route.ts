@@ -48,7 +48,7 @@ export async function POST(
       updated_at: new Date().toISOString()
     }
 
-    // Approve the ad
+    // Approve the ad by admin
     const { data: approvedAd, error } = await supabaseAdmin
       .from('ad_slots')
       .update(updateData)
