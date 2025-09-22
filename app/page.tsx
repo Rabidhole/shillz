@@ -9,11 +9,13 @@ import { TokenSubmitPanel } from './components/TokenSubmitPanel'
 import { ActiveBoosterDisplay } from './components/ActiveBoosterDisplay'
 import { useReownWallet } from './hooks/useReownWallet'
 import { PotProgress } from './components/PotProgress'
+import { useTelegramUser } from './hooks/useTelegram'
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showExplainer, setShowExplainer] = useState(false)
   const { address } = useReownWallet()
+  const { username: tgUsername } = useTelegramUser()
   const normalizeUsername = (input?: string) => {
     const raw = (input || '').trim()
     const isDev = process.env.NODE_ENV === 'development'
@@ -36,9 +38,9 @@ export default function Home() {
         </p>
 
         {/* User's Active Booster */}
-        {address && (
+        {(tgUsername || address) && (
           <ActiveBoosterDisplay 
-            userId={normalizeUsername(address || undefined)} 
+            userId={normalizeUsername(tgUsername || address || undefined)} 
             className="max-w-md mx-auto mb-4"
           />
         )}
@@ -80,7 +82,7 @@ export default function Home() {
 
         {/* Leaderboard */}
         <div className="mb-2 text-right text-xs text-gray-400">
-          User: <span className="text-white font-mono">{normalizeUsername(address || undefined)}</span>
+          User: <span className="text-white font-mono">{normalizeUsername(tgUsername || address || undefined)}</span>
         </div>
         <Leaderboard search={searchQuery} />
       </div>

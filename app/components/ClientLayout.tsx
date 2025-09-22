@@ -8,6 +8,7 @@ import { WalletConnect } from './WalletConnect'
 import { useReownWallet } from '../hooks/useReownWallet'
 import { GlobalShillersLeaderboard } from './GlobalShillersLeaderboard'
 import { Button } from '@/components/ui/button'
+import { useTelegramUser } from '../hooks/useTelegram'
 
 const ADMIN_WALLET = '0x18521c6f092B2261f7E2771A4D02c3cC7010DDE3'
 
@@ -27,6 +28,7 @@ export function ClientLayout({ children }: ClientLayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
   const { isConnected, address } = useReownWallet()
+  const { username: tgUsername } = useTelegramUser()
   
   // Check if current user is admin
   const isAdmin = isConnected && address?.toLowerCase() === ADMIN_WALLET.toLowerCase()
@@ -70,7 +72,7 @@ export function ClientLayout({ children }: ClientLayoutProps) {
                 🚀 Boosters
               </Link>
               <div className="text-xs text-gray-400 hidden lg:block">
-                User: <span className="text-white font-mono">{normalizeUsername(address || undefined)}</span>
+                User: <span className="text-white font-mono">{normalizeUsername(tgUsername || address || undefined)}</span>
               </div>
               <Button
                 onClick={() => setShowLeaderboard(true)}
@@ -125,7 +127,7 @@ export function ClientLayout({ children }: ClientLayoutProps) {
                 🏆 Leaderboard
               </button>
               <div className="text-xs text-gray-400">
-                User: <span className="text-white font-mono">{normalizeUsername(address || undefined)}</span>
+                User: <span className="text-white font-mono">{normalizeUsername(tgUsername || address || undefined)}</span>
               </div>
               <div className="pt-2">
                 <WalletConnect />
@@ -156,7 +158,7 @@ export function ClientLayout({ children }: ClientLayoutProps) {
                 </div>
                 <Button variant="secondary" onClick={() => setShowLeaderboard(false)}>Close</Button>
               </div>
-              <GlobalShillersLeaderboard userId={address || 'anonymous'} />
+              <GlobalShillersLeaderboard userId={tgUsername || address || 'anonymous'} />
             </div>
           </div>
         )}
