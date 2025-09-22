@@ -7,6 +7,7 @@ import { useReownWallet } from '../hooks/useReownWallet'
 import { TokenShillButton } from './TokenShillButton'
 import { cn } from '../../lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { useTelegramUser } from '../hooks/useTelegram'
 
 interface TokenCardProps {
   tokenId: string
@@ -17,6 +18,14 @@ export function TokenCard({ tokenId, className }: TokenCardProps) {
   const { token, isLoading, error } = useRealtimeToken(tokenId)
   const { rankData, isLoading: rankLoading } = useTokenRank(tokenId)
   const { address } = useReownWallet()
+  const { username: tgUsername } = useTelegramUser()
+  const normalizeUsername = (input?: string) => {
+    const raw = (input || '').trim()
+    const isDev = process.env.NODE_ENV === 'development'
+    if (!raw) return isDev ? '@dev-anonymous' : 'anonymous'
+    if (raw.startsWith('@')) return raw
+    return isDev ? `@dev-${raw}` : raw
+  }
 
   if (isLoading) {
     return (
@@ -102,7 +111,7 @@ export function TokenCard({ tokenId, className }: TokenCardProps) {
           <TokenShillButton 
             tokenId={token.id} 
             currentShills={token.total_shills || 0}
-            userId={address || 'anonymous'}
+            userId={normalizeUsername(tgUsername || address || undefined)}
           />
         </div>
 
