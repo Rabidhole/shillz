@@ -23,7 +23,14 @@ export interface UserBooster {
 
 export interface BoosterPurchaseRequest {
   id: string
-  paymentMethod: 'crypto' | 'card'
+  paymentMethod: 'crypto' | 'card' | 'sol' | 'ton'
   walletAddress?: string
   testMode?: boolean
+  transactionHash?: string
+  paymentId?: string
+  tonPayload?: {
+    transaction_id: string
+    amount: number
+    payload: string
+  }
 }

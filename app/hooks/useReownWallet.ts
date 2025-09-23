@@ -18,29 +18,81 @@ export function useReownWallet() {
     balance: null
   })
   const [error, setError] = useState<string | null>(null)
+  const [isHydrated, setIsHydrated] = useState(false)
+
+  // Handle hydration
+  useEffect(() => {
+    setIsHydrated(true)
+    
+    // Try to restore from localStorage after hydration
+    try {
+      const saved = localStorage.getItem('wallet-connection')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        console.log('Restoring wallet state from localStorage:', parsed)
+        setWalletState(parsed)
+      }
+    } catch (err) {
+      console.log('Failed to restore wallet state from localStorage')
+    }
+  }, [])
 
   useEffect(() => {
-    if (!appKit) {
-      console.warn('AppKit not initialized')
+    if (!appKit || !isHydrated) {
+      if (!appKit) {
+        console.warn('AppKit not initialized')
+      }
       return
     }
 
     try {
+      // Check initial connection state
+      const checkInitialState = async () => {
+        try {
+          const account = await appKit.getAccount()
+          if (account) {
+            setWalletState({
+              isConnected: account.isConnected,
+              address: account.address || null,
+              chainId: null,
+              balance: null
+            })
+            console.log('Initial wallet state restored:', account)
+          }
+        } catch (err) {
+          console.log('No initial wallet connection found')
+        }
+      }
+
+      // Check initial state first
+      checkInitialState()
+
       // Subscribe to connection events
       appKit.subscribeAccount((account) => {
-        setWalletState({
+        const newState = {
           isConnected: account.isConnected,
           address: account.address || null,
-          chainId: null,
+          chainId: 101, // Default to Solana mainnet for now
           balance: null // Balance will be fetched separately if needed
-        })
+        }
+        setWalletState(newState)
         setError(null) // Clear any previous errors
+        console.log('Wallet state updated:', account)
+        
+        // Persist to localStorage
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('wallet-connection', JSON.stringify(newState))
+          } catch (err) {
+            console.log('Failed to save wallet state to localStorage')
+          }
+        }
       })
     } catch (err) {
       console.error('Error subscribing to wallet account:', err)
       setError('Failed to connect to wallet')
     }
-  }, [])
+  }, [isHydrated])
 
   const openModal = () => {
     if (!appKit) {
@@ -65,6 +117,11 @@ export function useReownWallet() {
     try {
       await appKit.disconnect()
       setError(null)
+      
+      // Clear localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('wallet-connection')
+      }
     } catch (err) {
       console.error('Error disconnecting wallet:', err)
       setError('Failed to disconnect wallet')
@@ -73,23 +130,36 @@ export function useReownWallet() {
 
   const getChainName = (chainId: number): string => {
     const chains: Record<number, string> = {
-      1: 'Ethereum',
-      137: 'Polygon',
-      56: 'BSC',
-      42161: 'Arbitrum',
-      10: 'Optimism',
-      8453: 'Base',
-      43114: 'Avalanche'
+      101: 'Solana Mainnet',
+      102: 'Solana Testnet',
+      103: 'Solana Devnet'
     }
     return chains[chainId] || `Chain ${chainId}`
+  }
+
+  const switchToSolana = async () => {
+    if (!appKit) {
+      setError('Wallet not available')
+      return
+    }
+    
+    try {
+      // Open the wallet modal to allow user to switch networks
+      appKit.open()
+    } catch (err) {
+      console.error('Error opening wallet for network switch:', err)
+      setError('Failed to open wallet for network switch')
+    }
   }
 
   return {
     ...walletState,
     chainName: walletState.chainId ? getChainName(walletState.chainId) : null,
     error,
+    isHydrated,
     openModal,
     disconnect,
+    switchToSolana,
     clearError: () => setError(null)
   }
 }

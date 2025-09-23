@@ -30,7 +30,7 @@ export class ErrorBoundary extends Component<Props, State> {
     return { hasError: true, error }
   }
 
-  componentDidCatch(error: Error, errorInfo: any) {
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     // Log wallet connection errors but don't crash the app
     if (error.message?.includes('Proposal expired') || 
         error.message?.includes('walletconnect') ||

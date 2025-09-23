@@ -74,26 +74,29 @@ export async function POST(request: Request) {
     console.log('=== BOOSTER PURCHASE DEBUG START ===')
     const requestData = await request.json() as BoosterPurchaseRequest
     console.log('Request data:', JSON.stringify(requestData, null, 2))
-    const { id: boosterId, walletAddress, testMode } = requestData
+    const { id: boosterId, walletAddress, testMode, paymentMethod, transactionHash } = requestData
     const normalizedWallet = normalizeWalletAddress(walletAddress)
-    console.log('Parsed values:', { boosterId, walletAddress, normalizedWallet, testMode })
+    console.log('Parsed values:', { boosterId, walletAddress, normalizedWallet, testMode, paymentMethod, transactionHash })
 
-    // In test mode, create a fake transaction
-    const tonPayload = testMode ? {
-      transaction_id: `test-${Date.now()}`,
-      amount: 1000000000, // 1 TON in nano
-      payload: JSON.stringify({
-        type: 'test_purchase',
-        pack_id: boosterId
-      })
-    } : null
-
-    // Skip TON verification in test mode
-    if (!testMode && (!tonPayload || !tonPayload.payload || !tonPayload.transaction_id)) {
-      return NextResponse.json(
-        { error: 'Invalid TON payment data' },
-        { status: 400 }
-      )
+    // Handle different payment methods
+    let transactionId: string
+    
+    if (testMode) {
+      // Test mode - create fake transaction
+      transactionId = `test-${Date.now()}`
+    } else if (paymentMethod === 'sol' && transactionHash) {
+      // SOL payment - use the transaction hash
+      transactionId = transactionHash
+    } else {
+      // Legacy TON payment logic (for backward compatibility)
+      const tonPayload = requestData.tonPayload
+      if (!tonPayload || !tonPayload.payload || !tonPayload.transaction_id) {
+        return NextResponse.json(
+          { error: 'Invalid payment data' },
+          { status: 400 }
+        )
+      }
+      transactionId = tonPayload.transaction_id
     }
 
     // Handle user creation/lookup by wallet address
@@ -107,6 +110,36 @@ export async function POST(request: Request) {
         { status: 400 }
       )
     }
+
+    // CRITICAL SECURITY: Check if this transaction hash has already been used
+    console.log('Checking transaction hash uniqueness:', transactionId)
+    const { data: existingTransaction, error: transactionError } = await supabaseAdmin
+      .from('user_boosters')
+      .select('id, user_id, transaction_hash')
+      .eq('transaction_hash', transactionId)
+      .single()
+
+    if (transactionError && transactionError.code !== 'PGRST116') {
+      console.error('Error checking transaction uniqueness:', transactionError)
+      return NextResponse.json(
+        { error: 'Failed to verify transaction uniqueness' },
+        { status: 500 }
+      )
+    }
+
+    if (existingTransaction) {
+      console.error('Transaction hash already used:', {
+        transactionId,
+        existingUserId: existingTransaction.user_id,
+        currentUserId: actualUserId
+      })
+      return NextResponse.json(
+        { error: 'This transaction has already been used to purchase a booster. Each transaction can only be used once.' },
+        { status: 400 }
+      )
+    }
+
+    console.log('Transaction hash is unique - proceeding with purchase')
 
     // Use a more robust approach to check and clean up expired boosters
     const currentTime = new Date().toISOString()
@@ -166,14 +199,8 @@ export async function POST(request: Request) {
       )
     }
 
-    // Skip payment verification in test mode
-    const paidAmount = testMode ? 0.99 : tonPayload!.amount / 1000000000 // Convert from nanoTON to TON
-    if (!testMode && paidAmount !== boosterPack.price_usd) {
-      return NextResponse.json(
-        { error: 'Invalid payment amount' },
-        { status: 400 }
-      )
-    }
+    // Payment verification is handled by the payment verification API
+    // For SOL payments, the amount was already verified in the SOL verification step
 
     // Calculate expiration time
     const expiresAt = new Date()
@@ -219,7 +246,7 @@ export async function POST(request: Request) {
         booster_pack_id: boosterPack.id,
         expires_at: expiresAt.toISOString(),
         is_active: true,
-        transaction_hash: tonPayload!.transaction_id
+        transaction_hash: transactionId
       })
       .select()
       .single()
@@ -256,8 +283,8 @@ export async function POST(request: Request) {
       JSON.stringify({
         success: true,
         booster: userBooster,
-        ton_response: {
-          transaction_id: tonPayload!.transaction_id,
+        payment_response: {
+          transaction_id: transactionId,
           ok: true
         }
       }),

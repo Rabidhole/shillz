@@ -149,7 +149,7 @@ export function TokenShillButton({ tokenId, currentShills, userId = 'anonymous',
           <div className="flex items-center gap-2 text-yellow-400 text-sm">
             <span>⚠️</span>
             <span>
-              <strong>Not connected:</strong> Your shills count towards the token's total but won't be tracked on your personal leaderboard.
+              <strong>Not connected:</strong> Your shills count towards the token&apos;s total but won&apos;t be tracked on your personal leaderboard.
             </span>
           </div>
         </div>

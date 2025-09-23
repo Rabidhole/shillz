@@ -3,8 +3,8 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { useUserBoosters } from '../hooks/useUserBoosters'
-import { useTonPrice } from '../hooks/useTonPrice'
 import { useReownWallet } from '../hooks/useReownWallet'
+import { SolPaymentModal } from './SolPaymentModal'
 
 interface BoosterShopProps {
   userId?: string
@@ -21,6 +21,7 @@ const BOOSTERS = [
     name: 'Quick Boost',
     description: 'Double your shill power for 1 hour! Perfect for quick pumps.',
     priceUsd: 0.99,
+    priceSol: 0.01, // ~$0.99 at $100 SOL
     multiplier: 2.0,
     duration: 1,
     color: 'green'
@@ -30,6 +31,7 @@ const BOOSTERS = [
     name: 'Power Boost',
     description: 'Quadruple your shill power for 4 hours! Best value for serious shillers.',
     priceUsd: 2.99,
+    priceSol: 0.03, // ~$2.99 at $100 SOL
     multiplier: 4.0,
     duration: 4,
     color: 'purple'
@@ -44,7 +46,7 @@ function normalizeWalletAddress(input?: string): string {
 }
 
 export function BoosterShop({ userId = 'anonymous' }: BoosterShopProps) {
-  const { isConnected, address, error: walletError, openModal, clearError } = useReownWallet()
+  const { isConnected, address, chainId, error: walletError, openModal, clearError, switchToSolana } = useReownWallet()
   // Use connected wallet address if available, otherwise fall back to userId
   const effectiveUserId = isConnected && address ? address : userId
   const normalizedUser = normalizeWalletAddress(effectiveUserId)
@@ -59,22 +61,47 @@ export function BoosterShop({ userId = 'anonymous' }: BoosterShopProps) {
     normalizedUser,
     walletError
   })
-  const { formatUsdWithTon, price: tonPrice, isLoading: isPriceLoading } = useTonPrice()
   const [loadingBoosterId, setLoadingBoosterId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [showSuccess, setShowSuccess] = useState<{ open: boolean; packId?: string }>(() => ({ open: false }))
   const [showFailure, setShowFailure] = useState<{ open: boolean; message?: string }>(() => ({ open: false }))
   const [showWalletPrompt, setShowWalletPrompt] = useState<{ open: boolean }>(() => ({ open: false }))
+  const [showSolPayment, setShowSolPayment] = useState<{ open: boolean; packId?: string; amount?: number }>(() => ({ open: false }))
 
   const hasActiveBooster = activeBoosters.length > 0
+  const isOnSolana = chainId === 101 || chainId === 102 || chainId === 103 || !chainId
 
   // Check if we're in test mode
   const isTestMode = process.env.NODE_ENV === 'development'
+  
+  // Testnet configuration
+  const isTestnet = process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_SOLANA_NETWORK === 'testnet'
+  
+  // SOL payment configuration - use testnet address for development, mainnet for production
+  const SOL_RECIPIENT_ADDRESS = isTestnet 
+    ? (process.env.NEXT_PUBLIC_TEST_SOL_RECIPIENT_ADDRESS || 'YourTestnetSolanaAddressHere')
+    : (process.env.NEXT_PUBLIC_SOL_RECIPIENT_ADDRESS || 'YourMainnetSolanaAddressHere')
+  
+  // Debug logging
+  console.log('SOL Payment Debug:', {
+    isTestnet,
+    testEnvVar: process.env.NEXT_PUBLIC_TEST_SOL_RECIPIENT_ADDRESS,
+    mainEnvVar: process.env.NEXT_PUBLIC_SOL_RECIPIENT_ADDRESS,
+    finalAddress: SOL_RECIPIENT_ADDRESS
+  })
+  // const SOL_PRICE_USD = 100 // This should be fetched from a price API
 //check
   const handlePurchase = async (packId: string) => {
     // Check if wallet is connected
     if (!isConnected || !address) {
       setShowWalletPrompt({ open: true })
+      return
+    }
+
+    // Check if on Solana network
+    if (!isOnSolana) {
+      setError('Please switch to Solana network to make purchases')
+      setShowFailure({ open: true, message: 'Please switch to Solana network to make purchases' })
       return
     }
 
@@ -91,59 +118,62 @@ export function BoosterShop({ userId = 'anonymous' }: BoosterShopProps) {
       console.log('Attempting to purchase booster:', {
         packId,
         walletAddress: address,
-        testMode: true
+        testMode: isTestMode
       })
 
-      // In test mode, simulate a successful payment
+      // Always use SOL payment flow (even in test mode, but on testnet)
+      const booster = BOOSTERS.find(b => b.id === packId)
+      if (!booster) {
+        throw new Error('Booster not found')
+      }
+      
+      // Use predefined SOL amount
+      const solAmount = booster.priceSol
+      
+      setShowSolPayment({ 
+        open: true, 
+        packId: packId, 
+        amount: solAmount 
+      })
+    } catch (error) {
+      console.error('Error purchasing booster:', error)
+      setError(error instanceof Error ? error.message : 'Failed to purchase booster. Please try again.')
+    } finally {
+      setLoadingBoosterId(null)
+    }
+  }
+
+  const handleSolPaymentSuccess = async (payment: { id: string; transactionHash: string }) => {
+    if (!showSolPayment.packId) return
+    
+    try {
+      // Complete the booster purchase with SOL payment
       const response = await fetch('/api/boosters/purchase', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          id: packId,
-          paymentMethod: 'test',
-          walletAddress: address, // Use the connected wallet address
-          testMode: true
+          id: showSolPayment.packId,
+          paymentMethod: 'sol',
+          walletAddress: address,
+          paymentId: payment.id,
+          transactionHash: payment.transactionHash
         }),
       })
 
       const data = await response.json()
-      console.log('Purchase response:', {
-        status: response.status,
-        ok: response.ok,
-        data
-      })
 
       if (!response.ok) {
-        let errorMessage = data.error || 'Failed to purchase booster'
-        
-        // Handle specific database constraint errors
-        if (data.error && data.error.includes('duplicate key value violates unique constraint')) {
-          if (data.error.includes('idx_one_active_booster_per_user')) {
-            errorMessage = 'You already have an active booster. Please wait for it to expire before purchasing another one.'
-          }
-        }
-        
-        console.error('Purchase failed:', {
-          status: response.status,
-          error: errorMessage,
-          fullError: data
-        })
-        
-        setShowFailure({ open: true, message: errorMessage })
-        throw new Error(errorMessage)
+        throw new Error(data.error || 'Failed to complete purchase')
       }
 
-      // Success - show success message briefly then refresh
-      setError(null)
-      console.log('Booster purchased successfully!')
-      setShowSuccess({ open: true, packId })
+      setShowSuccess({ open: true, packId: showSolPayment.packId })
+      setShowSolPayment({ open: false })
     } catch (error) {
-      console.error('Error purchasing booster:', error)
-      setError(error instanceof Error ? error.message : 'Failed to purchase booster. Please try again.')
-    } finally {
-      setLoadingBoosterId(null)
+      console.error('Error completing SOL payment:', error)
+      setError(error instanceof Error ? error.message : 'Failed to complete purchase')
+      setShowFailure({ open: true, message: 'Failed to complete purchase' })
     }
   }
 
@@ -169,6 +199,7 @@ export function BoosterShop({ userId = 'anonymous' }: BoosterShopProps) {
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold text-white mb-2">
           Booster Shop {isTestMode && <span className="text-yellow-400 text-sm">🧪 TEST MODE</span>}
+          {isTestnet && <span className="text-blue-400 text-sm ml-2">🌐 TESTNET</span>}
         </h1>
         <p className="text-gray-400">Power up your shills with these boosters!</p>
         {/* Debug connection status */}
@@ -184,11 +215,6 @@ export function BoosterShop({ userId = 'anonymous' }: BoosterShopProps) {
             <p className="text-yellow-400">Test Mode Active - No real payments required</p>
           )}
         </div>
-        {tonPrice && (
-          <p className="text-sm text-gray-500 mt-2">
-            Current TON Price: ${tonPrice.usd.toFixed(2)}
-          </p>
-        )}
       </div>
 
       {/* Active Booster Display */}
@@ -322,10 +348,8 @@ export function BoosterShop({ userId = 'anonymous' }: BoosterShopProps) {
                 )}
               </div>
               <div className={`text-${booster.color}-400 font-bold text-right`}>
-                <div>{formatUsdWithTon(booster.priceUsd)}</div>
-                {isPriceLoading && (
-                  <div className="text-xs animate-pulse">Loading price...</div>
-                )}
+                <div>{booster.priceSol} SOL</div>
+                <div className="text-xs text-gray-400">~${booster.priceUsd}</div>
               </div>
             </div>
             <div className="space-y-4">
@@ -340,15 +364,16 @@ export function BoosterShop({ userId = 'anonymous' }: BoosterShopProps) {
                 {booster.multiplier === 4 && <li>✓ Maximum power</li>}
               </ul>
               <Button
-                onClick={() => handlePurchase(booster.id)}
+                onClick={() => !isOnSolana ? switchToSolana() : handlePurchase(booster.id)}
                 disabled={loadingBoosterId !== null || hasActiveBooster}
                 className={`w-full bg-${booster.color}-600 hover:bg-${booster.color}-700 disabled:opacity-50`}
               >
                 {loadingBoosterId === booster.id ? 'Processing...' : 
                  hasActiveBooster ? 'Already Have Active Booster' : 
-                 !isConnected || !address ? 'Connect Wallet to Buy' :
-                 isTestMode ? '🧪 Test Purchase' : 
-                 'Buy Now'}
+                 !isConnected || !address ? 'Connect Solana Wallet' :
+                 !isOnSolana ? 'Switch to Solana' :
+                 isTestnet ? 'Pay with Testnet SOL' : 
+                 'Pay with SOL'}
               </Button>
             </div>
           </div>
@@ -359,15 +384,23 @@ export function BoosterShop({ userId = 'anonymous' }: BoosterShopProps) {
       <div className="mt-8 text-center text-sm text-gray-400">
         {BOOSTERS.map(booster => (
           <p key={booster.id}>
-            {booster.name}: ${(booster.priceUsd / booster.duration).toFixed(2)} per hour of {booster.multiplier}x boost
+            {booster.name}: {(booster.priceSol / booster.duration).toFixed(3)} SOL per hour of {booster.multiplier}x boost
           </p>
         ))}
-        {tonPrice && (
-          <p className="mt-2 text-xs">
-            Prices updated {new Date(tonPrice.lastUpdated).toLocaleTimeString()}
-          </p>
-        )}
       </div>
+
+      {/* SOL Payment Modal */}
+      {showSolPayment.open && showSolPayment.amount && (
+        <SolPaymentModal
+          isOpen={showSolPayment.open}
+          onClose={() => setShowSolPayment({ open: false })}
+          amount={showSolPayment.amount}
+          recipientAddress={SOL_RECIPIENT_ADDRESS}
+          claimingWalletAddress={address || 'anonymous'}
+          onPaymentSuccess={handleSolPaymentSuccess}
+          description={`${BOOSTERS.find(b => b.id === showSolPayment.packId)?.name || 'Booster'} - ${showSolPayment.amount.toFixed(4)} SOL`}
+        />
+      )}
     </div>
   )
 }
