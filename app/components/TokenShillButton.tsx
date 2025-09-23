@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { useUserBoosters } from '../hooks/useUserBoosters'
+import { useReownWallet } from '../hooks/useReownWallet'
 import { BoosterStatus } from './BoosterStatus'
 import { ActiveBoosterDisplay } from './ActiveBoosterDisplay'
 import { cn } from '@/lib/utils'
@@ -19,11 +20,24 @@ interface TokenShillButtonProps {
 const SHILLMOJI_POOL = Array.from({ length: 9 }, (_, i) => `/shillmojis/${i + 1}.png`)
 
 export function TokenShillButton({ tokenId, currentShills, userId = 'anonymous', onShillSuccess }: TokenShillButtonProps) {
+  const { isConnected, address } = useReownWallet()
+  
+  // Use connected wallet address if available, otherwise fall back to userId
+  const effectiveUserId = isConnected && address ? address : userId
+  
+  // Debug logging
+  console.log('TokenShillButton Debug:', {
+    isConnected,
+    address,
+    userId,
+    effectiveUserId
+  })
+  
   // Reset optimistic count when real count updates
   useEffect(() => {
     setOptimisticShills(0)
   }, [currentShills])
-  const { totalMultiplier, hasActiveBoosters } = useUserBoosters(userId)
+  const { totalMultiplier, hasActiveBoosters } = useUserBoosters(effectiveUserId)
   const [targetImage, setTargetImage] = useState('')
   const [imageOptions, setImageOptions] = useState<string[]>([])
   const [isAnimating, setIsAnimating] = useState(false)
@@ -89,7 +103,7 @@ export function TokenShillButton({ tokenId, currentShills, userId = 'anonymous',
         },
         body: JSON.stringify({
           tokenId,
-          userId,
+          userId: isConnected && address ? address : userId, // Use wallet address if connected, otherwise fallback to userId
           multiplier: totalMultiplier
         }),
       }).catch(error => {
@@ -127,7 +141,19 @@ export function TokenShillButton({ tokenId, currentShills, userId = 'anonymous',
   return (
     <div className="relative flex flex-col items-center justify-center gap-4">
       {/* Active Booster Display */}
-      <ActiveBoosterDisplay userId={userId} className="w-full max-w-md mb-4" />
+      <ActiveBoosterDisplay userId={effectiveUserId} className="w-full max-w-md mb-4" />
+
+      {/* Anonymous User Warning */}
+      {!isConnected && (
+        <div className="w-full max-w-md mb-4 p-3 bg-yellow-900/20 border border-yellow-500/30 rounded-lg">
+          <div className="flex items-center gap-2 text-yellow-400 text-sm">
+            <span>⚠️</span>
+            <span>
+              <strong>Not connected:</strong> Your shills count towards the token's total but won't be tracked on your personal leaderboard.
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Instructions */}
       <div className="text-center">
@@ -199,12 +225,6 @@ export function TokenShillButton({ tokenId, currentShills, userId = 'anonymous',
           )}
         </div>
 
-        {/* Multiplier indicator overlay */}
-        {hasActiveBoosters && (
-          <div className="absolute -top-2 -right-2 bg-yellow-400 text-black text-xs font-bold px-2 py-1 rounded-full">
-            {totalMultiplier.toFixed(1)}x
-          </div>
-        )}
       </div>
 
       {/* Display current count with +1 animation */}

@@ -4,6 +4,7 @@ export type TimeWindow = 'hour' | 'day';
 export interface User {
     id: string;
     telegram_username: string;
+    wallet_address: string;
     tier: UserTier;
     total_shills: number;
     created_at: string | null;

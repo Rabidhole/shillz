@@ -71,9 +71,6 @@ export function ClientLayout({ children }: ClientLayoutProps) {
               >
                 🚀 Boosters
               </Link>
-              <div className="text-xs text-gray-400 hidden lg:block">
-                User: <span className="text-white font-mono">{normalizeUsername(tgUsername || address || undefined)}</span>
-              </div>
               <Button
                 onClick={() => setShowLeaderboard(true)}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg text-sm font-medium"
@@ -126,9 +123,6 @@ export function ClientLayout({ children }: ClientLayoutProps) {
               >
                 🏆 Leaderboard
               </button>
-              <div className="text-xs text-gray-400">
-                User: <span className="text-white font-mono">{normalizeUsername(tgUsername || address || undefined)}</span>
-              </div>
               <div className="pt-2">
                 <WalletConnect />
               </div>

@@ -39,5 +39,9 @@ export const appKit = createAppKit({
     '--w3m-color-mix-strength': 20,
     '--w3m-accent': '#6366f1',
     '--w3m-border-radius-master': '8px'
-  }
+  },
+  // Add connection timeout and error handling
+  enableNetworkSwitching: true,
+  enableAnalytics: true,
+  enableOnramp: false
 })

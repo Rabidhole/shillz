@@ -16,23 +16,34 @@ const supabaseAdmin = createClient(
   }
 )
 
+function normalizeWalletAddress(input: string | null | undefined): string {
+  const raw = (input || '').trim()
+  if (!raw) {
+    return 'anonymous'
+  }
+  // Remove @ prefix if present
+  return raw.startsWith('@') ? raw.substring(1) : raw
+}
+
 export async function POST(request: Request) {
   try {
     const { tokenId, userId, multiplier = 1 } = await request.json()
     console.log('Received shill request:', { tokenId, userId, multiplier })
 
-    // Get or create user based on userId
+    // Get or create user based on wallet address
     let user
     if (userId && userId !== 'anonymous') {
+      const normalizedWallet = normalizeWalletAddress(userId)
+      
       // Try to find existing user first
       const { data: existingUser, error: findError } = await supabaseAdmin
         .from('users_new')
         .select('*')
-        .eq('telegram_username', userId)
+        .eq('wallet_address', normalizedWallet)
         .single()
 
       if (findError && findError.code !== 'PGRST116') {
-        console.error('Error finding user:', findError)
+        console.error('Error finding user by wallet:', findError)
         return NextResponse.json(
           { error: findError.message }, 
           { status: 400 }
@@ -46,7 +57,8 @@ export async function POST(request: Request) {
         const { data: newUser, error: createError } = await supabaseAdmin
           .from('users_new')
           .insert({
-            telegram_username: userId,
+            wallet_address: normalizedWallet,
+            telegram_username: `wallet_${normalizedWallet}`,
             tier: 'degen',
             total_shills: 0
           })

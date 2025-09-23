@@ -1,9 +1,10 @@
-function normalizeUsername(input: string | null | undefined): string {
+function normalizeWalletAddress(input: string | null | undefined): string {
   const raw = (input || '').trim()
-  const isDev = process.env.NODE_ENV === 'development'
-  if (!raw) return isDev ? '@dev-anonymous' : 'anonymous'
-  if (raw.startsWith('@')) return raw
-  return isDev ? `@dev-${raw}` : raw
+  if (!raw) {
+    return 'anonymous'
+  }
+  // Remove @ prefix if present
+  return raw.startsWith('@') ? raw.substring(1) : raw
 }
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
@@ -51,17 +52,14 @@ export async function GET(
 ) {
   try {
     const { id: providedId } = await context.params
-    const walletAddress = normalizeUsername(providedId)
-    console.log('Boosters API called with username:', walletAddress)
+    const walletAddress = normalizeWalletAddress(providedId)
+    console.log('Boosters API called with wallet address:', walletAddress)
 
-    // For anonymous users, still check the database since they might have boosters
-    // Don't shortcut here - let the normal flow handle it
-
-    // Find the user by telegram username
+    // Find the user by wallet address
     const { data: user, error: userError } = await supabaseAdmin
       .from('users_new')
       .select('id')
-      .eq('telegram_username', walletAddress)
+      .eq('wallet_address', walletAddress)
       .single()
 
     console.log('User lookup result:', { user, userError })

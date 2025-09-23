@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { useUserBoosters } from '../hooks/useUserBoosters'
 import { useTonPrice } from '../hooks/useTonPrice'
+import { useReownWallet } from '../hooks/useReownWallet'
 
 interface BoosterShopProps {
   userId?: string
@@ -35,22 +36,35 @@ const BOOSTERS = [
   }
 ] as const
 
-function normalizeUsername(input?: string): string {
+function normalizeWalletAddress(input?: string): string {
   const raw = (input || '').trim()
-  const isDev = process.env.NODE_ENV === 'development'
-  if (!raw) return isDev ? '@dev-anonymous' : 'anonymous'
-  if (raw.startsWith('@')) return raw
-  return isDev ? `@dev-${raw}` : raw
+  if (!raw) return 'anonymous'
+  // Remove @ prefix if present
+  return raw.startsWith('@') ? raw.substring(1) : raw
 }
 
 export function BoosterShop({ userId = 'anonymous' }: BoosterShopProps) {
-  const normalizedUser = normalizeUsername(userId)
+  const { isConnected, address, error: walletError, openModal, clearError } = useReownWallet()
+  // Use connected wallet address if available, otherwise fall back to userId
+  const effectiveUserId = isConnected && address ? address : userId
+  const normalizedUser = normalizeWalletAddress(effectiveUserId)
   const { activeBoosters, totalMultiplier, nextExpiring } = useUserBoosters(normalizedUser)
+
+  // Debug logging
+  console.log('BoosterShop Debug:', {
+    isConnected,
+    address,
+    userId,
+    effectiveUserId,
+    normalizedUser,
+    walletError
+  })
   const { formatUsdWithTon, price: tonPrice, isLoading: isPriceLoading } = useTonPrice()
   const [loadingBoosterId, setLoadingBoosterId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [showSuccess, setShowSuccess] = useState<{ open: boolean; packId?: string }>(() => ({ open: false }))
   const [showFailure, setShowFailure] = useState<{ open: boolean; message?: string }>(() => ({ open: false }))
+  const [showWalletPrompt, setShowWalletPrompt] = useState<{ open: boolean }>(() => ({ open: false }))
 
   const hasActiveBooster = activeBoosters.length > 0
 
@@ -58,6 +72,12 @@ export function BoosterShop({ userId = 'anonymous' }: BoosterShopProps) {
   const isTestMode = process.env.NODE_ENV === 'development'
 //check
   const handlePurchase = async (packId: string) => {
+    // Check if wallet is connected
+    if (!isConnected || !address) {
+      setShowWalletPrompt({ open: true })
+      return
+    }
+
     if (hasActiveBooster) {
       setError('You already have an active booster. Wait for it to expire before purchasing another one.')
       setShowFailure({ open: true, message: 'You already have an active booster. Please wait until it expires.' })
@@ -70,7 +90,7 @@ export function BoosterShop({ userId = 'anonymous' }: BoosterShopProps) {
     try {
       console.log('Attempting to purchase booster:', {
         packId,
-        userId,
+        walletAddress: address,
         testMode: true
       })
 
@@ -83,7 +103,7 @@ export function BoosterShop({ userId = 'anonymous' }: BoosterShopProps) {
         body: JSON.stringify({
           id: packId,
           paymentMethod: 'test',
-          walletAddress: userId,
+          walletAddress: address, // Use the connected wallet address
           testMode: true
         }),
       })
@@ -151,6 +171,13 @@ export function BoosterShop({ userId = 'anonymous' }: BoosterShopProps) {
           Booster Shop {isTestMode && <span className="text-yellow-400 text-sm">🧪 TEST MODE</span>}
         </h1>
         <p className="text-gray-400">Power up your shills with these boosters!</p>
+        {/* Debug connection status */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="mt-2 text-xs text-gray-500">
+            Wallet: {isConnected ? '✅ Connected' : '❌ Not Connected'} | 
+            Address: {address ? `${address.substring(0, 6)}...${address.substring(address.length - 4)}` : 'None'}
+          </div>
+        )}
         <div className="mt-2 text-sm">
           <p className="text-gray-400">Logged in as: <span className="text-white font-mono">{normalizedUser}</span></p>
           {isTestMode && (
@@ -223,6 +250,63 @@ export function BoosterShop({ userId = 'anonymous' }: BoosterShopProps) {
         </div>
       )}
 
+      {/* Wallet Error Display */}
+      {walletError && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-gray-900 border border-red-500/30 rounded-xl p-6 w-full max-w-md">
+            <div className="text-2xl font-bold text-red-400 mb-2">⚠️ Wallet Error</div>
+            <div className="text-gray-300 mb-6">{walletError}</div>
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                variant="secondary"
+                onClick={clearError}
+              >
+                Dismiss
+              </Button>
+              <Button
+                onClick={() => {
+                  clearError()
+                  openModal()
+                }}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                Try Again
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Wallet Connection Prompt Modal */}
+      {showWalletPrompt.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-gray-900 border border-yellow-500/30 rounded-xl p-6 w-full max-w-md">
+            <div className="text-2xl font-bold text-yellow-400 mb-2">🔗 Wallet Required</div>
+            <div className="text-gray-300 mb-6">
+              You need to connect your wallet to purchase boosters. This allows us to track your purchases and apply boosters to your account.
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => setShowWalletPrompt({ open: false })}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowWalletPrompt({ open: false })
+                  clearError() // Clear any previous errors
+                  openModal() // Open wallet connection modal
+                }}
+                className="bg-yellow-600 hover:bg-yellow-700"
+              >
+                Connect Wallet
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Booster Cards */}
       <div className="grid md:grid-cols-2 gap-6">
         {BOOSTERS.map((booster) => (
@@ -262,6 +346,7 @@ export function BoosterShop({ userId = 'anonymous' }: BoosterShopProps) {
               >
                 {loadingBoosterId === booster.id ? 'Processing...' : 
                  hasActiveBooster ? 'Already Have Active Booster' : 
+                 !isConnected || !address ? 'Connect Wallet to Buy' :
                  isTestMode ? '🧪 Test Purchase' : 
                  'Buy Now'}
               </Button>

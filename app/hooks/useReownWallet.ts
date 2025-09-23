@@ -17,25 +17,58 @@ export function useReownWallet() {
     chainId: null,
     balance: null
   })
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Subscribe to connection events
-    appKit.subscribeAccount((account) => {
-      setWalletState({
-        isConnected: account.isConnected,
-        address: account.address || null,
-        chainId: null,
-        balance: null // Balance will be fetched separately if needed
+    if (!appKit) {
+      console.warn('AppKit not initialized')
+      return
+    }
+
+    try {
+      // Subscribe to connection events
+      appKit.subscribeAccount((account) => {
+        setWalletState({
+          isConnected: account.isConnected,
+          address: account.address || null,
+          chainId: null,
+          balance: null // Balance will be fetched separately if needed
+        })
+        setError(null) // Clear any previous errors
       })
-    })
+    } catch (err) {
+      console.error('Error subscribing to wallet account:', err)
+      setError('Failed to connect to wallet')
+    }
   }, [])
 
   const openModal = () => {
-    appKit.open()
+    if (!appKit) {
+      setError('Wallet not available')
+      return
+    }
+    
+    try {
+      appKit.open()
+    } catch (err) {
+      console.error('Error opening wallet modal:', err)
+      setError('Failed to open wallet')
+    }
   }
 
   const disconnect = async () => {
-    await appKit.disconnect()
+    if (!appKit) {
+      setError('Wallet not available')
+      return
+    }
+    
+    try {
+      await appKit.disconnect()
+      setError(null)
+    } catch (err) {
+      console.error('Error disconnecting wallet:', err)
+      setError('Failed to disconnect wallet')
+    }
   }
 
   const getChainName = (chainId: number): string => {
@@ -54,7 +87,9 @@ export function useReownWallet() {
   return {
     ...walletState,
     chainName: walletState.chainId ? getChainName(walletState.chainId) : null,
+    error,
     openModal,
-    disconnect
+    disconnect,
+    clearError: () => setError(null)
   }
 }

@@ -11,24 +11,35 @@ const supabaseAdmin = createClient(
   }
 )
 
-function normalizeUsername(input: string | null | undefined): string {
+function normalizeWalletAddress(input: string | null | undefined): string {
   const raw = (input || '').trim()
-  const isDev = process.env.NODE_ENV === 'development'
-  if (!raw) return isDev ? '@dev-anonymous' : 'anonymous'
-  if (raw.startsWith('@')) return raw
-  return isDev ? `@dev-${raw}` : raw
+  if (!raw) {
+    return 'anonymous'
+  }
+  // Remove @ prefix if present
+  return raw.startsWith('@') ? raw.substring(1) : raw
+}
+
+function getWalletDisplayName(walletAddress: string): string {
+  if (walletAddress === 'anonymous') {
+    return 'Anonymous'
+  }
+  if (walletAddress.length > 10) {
+    return `${walletAddress.substring(0, 6)}...${walletAddress.substring(walletAddress.length - 4)}`
+  }
+  return walletAddress
 }
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const provided = searchParams.get('user')
-    const username = normalizeUsername(provided)
+    const walletAddress = normalizeWalletAddress(provided)
 
     // Top 10 shillers by total_shills
     const { data: topUsers, error: topErr } = await supabaseAdmin
       .from('users_new')
-      .select('telegram_username, total_shills')
+      .select('wallet_address, total_shills')
       .order('total_shills', { ascending: false })
       .limit(10)
 
@@ -39,8 +50,8 @@ export async function GET(request: Request) {
     // Current user's row
     const { data: userRow, error: userErr } = await supabaseAdmin
       .from('users_new')
-      .select('telegram_username, total_shills')
-      .eq('telegram_username', username)
+      .select('wallet_address, total_shills')
+      .eq('wallet_address', walletAddress)
       .single()
 
     if (userErr && userErr.code !== 'PGRST116') {
@@ -52,15 +63,20 @@ export async function GET(request: Request) {
     if (!currentUser) {
       const { data: created, error: createErr } = await supabaseAdmin
         .from('users_new')
-        .insert({ telegram_username: username, tier: 'degen', total_shills: 0 })
-        .select('telegram_username, total_shills')
+        .insert({ 
+          wallet_address: walletAddress, 
+          telegram_username: `wallet_${walletAddress}`,
+          tier: 'degen', 
+          total_shills: 0 
+        })
+        .select('wallet_address, total_shills')
         .single()
 
       if (createErr && createErr.code !== '23505') { // ignore conflict if created concurrently
         return NextResponse.json({ error: createErr.message }, { status: 400 })
       }
 
-      currentUser = created || { telegram_username: username, total_shills: 0 }
+      currentUser = created || { wallet_address: walletAddress, total_shills: 0 }
     }
     let currentRank: number | null = null
 
@@ -79,8 +95,14 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({
-      top: topUsers || [],
-      currentUser: currentUser ? { username: currentUser.telegram_username, total_shills: currentUser.total_shills } : null,
+      top: (topUsers || []).map(user => ({
+        username: getWalletDisplayName(user.wallet_address),
+        total_shills: user.total_shills
+      })),
+      currentUser: currentUser ? {
+        username: getWalletDisplayName(currentUser.wallet_address),
+        total_shills: currentUser.total_shills
+      } : null,
       currentRank
     })
   } catch (error) {

@@ -17,14 +17,13 @@ interface TokenCardProps {
 export function TokenCard({ tokenId, className }: TokenCardProps) {
   const { token, isLoading, error } = useRealtimeToken(tokenId)
   const { rankData, isLoading: rankLoading } = useTokenRank(tokenId)
-  const { address } = useReownWallet()
+  const { isConnected, address } = useReownWallet()
   const { username: tgUsername } = useTelegramUser()
-  const normalizeUsername = (input?: string) => {
+  const normalizeWalletAddress = (input?: string) => {
     const raw = (input || '').trim()
-    const isDev = process.env.NODE_ENV === 'development'
-    if (!raw) return isDev ? '@dev-anonymous' : 'anonymous'
-    if (raw.startsWith('@')) return raw
-    return isDev ? `@dev-${raw}` : raw
+    if (!raw) return 'anonymous'
+    // Remove @ prefix if present
+    return raw.startsWith('@') ? raw.substring(1) : raw
   }
 
   if (isLoading) {
@@ -111,7 +110,7 @@ export function TokenCard({ tokenId, className }: TokenCardProps) {
           <TokenShillButton 
             tokenId={token.id} 
             currentShills={token.total_shills || 0}
-            userId={normalizeUsername(tgUsername || address || undefined)}
+            userId={isConnected && address ? address : 'anonymous'}
           />
         </div>
 

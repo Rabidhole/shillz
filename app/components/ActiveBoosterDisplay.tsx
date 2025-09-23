@@ -62,21 +62,14 @@ export function ActiveBoosterDisplay({ userId, className }: ActiveBoosterDisplay
   }
 
   if (!activeBoosters || activeBoosters.length === 0) {
-    // Show debug info in development
-    if (process.env.NODE_ENV === 'development') {
-      return (
-        <div className={`bg-gray-800/50 border border-gray-600 rounded-lg p-4 ${className}`}>
-          <div className="text-gray-400 text-sm">
-            No active boosters found for user: {userId}
-            <br />
-            Active boosters: {activeBoosters?.length || 0}
-            <br />
-            Total multiplier: {totalMultiplier}
-          </div>
-        </div>
-      )
-    }
-    return null
+    // Show simple badge when no boosters
+    return (
+      <div className={`${className}`}>
+        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-700 text-gray-300 border border-gray-600">
+          Booster: None
+        </span>
+      </div>
+    )
   }
 
   return (

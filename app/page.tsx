@@ -16,12 +16,11 @@ export default function Home() {
   const [showExplainer, setShowExplainer] = useState(false)
   const { address } = useReownWallet()
   const { username: tgUsername } = useTelegramUser()
-  const normalizeUsername = (input?: string) => {
+  const normalizeWalletAddress = (input?: string) => {
     const raw = (input || '').trim()
-    const isDev = process.env.NODE_ENV === 'development'
-    if (!raw) return isDev ? '@dev-anonymous' : 'anonymous'
-    if (raw.startsWith('@')) return raw
-    return isDev ? `@dev-${raw}` : raw
+    if (!raw) return 'anonymous'
+    // Remove @ prefix if present
+    return raw.startsWith('@') ? raw.substring(1) : raw
   }
 
   return (
@@ -40,7 +39,7 @@ export default function Home() {
         {/* User's Active Booster */}
         {(tgUsername || address) && (
           <ActiveBoosterDisplay 
-            userId={normalizeUsername(tgUsername || address || undefined)} 
+            userId={normalizeWalletAddress(tgUsername || address || undefined)} 
             className="max-w-md mx-auto mb-4"
           />
         )}
@@ -81,9 +80,6 @@ export default function Home() {
         </div>
 
         {/* Leaderboard */}
-        <div className="mb-2 text-right text-xs text-gray-400">
-          User: <span className="text-white font-mono">{normalizeUsername(tgUsername || address || undefined)}</span>
-        </div>
         <Leaderboard search={searchQuery} />
       </div>
 
