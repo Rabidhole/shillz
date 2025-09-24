@@ -37,6 +37,11 @@ export function useReownWallet() {
     }
   }, [])
 
+  // Debug wallet state changes
+  useEffect(() => {
+    console.log('Wallet state changed:', walletState)
+  }, [walletState])
+
   useEffect(() => {
     if (!appKit || !isHydrated) {
       if (!appKit) {

@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { Database } from '@/app/types/database'
+import { fetchSolUsdPrice } from '@/lib/sol-pricing'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,7 +25,9 @@ export async function POST(request: Request) {
       telegramHandle, 
       selectedDates, 
       totalPrice,
-      paymentId = 'test-payment-' + Date.now() // For test mode
+      paymentId = 'test-payment-' + Date.now(), // For test mode
+      transactionHash,
+      walletAddress
     } = await request.json()
 
     // Validate required fields
@@ -62,6 +65,11 @@ export async function POST(request: Request) {
       )
     }
 
+    // Calculate SOL price and USD equivalent
+    const solUsdPrice = await fetchSolUsdPrice()
+    const totalPriceSol = totalPrice / 100 / solUsdPrice // Convert USD to SOL
+    const totalPriceUsd = totalPrice / 100
+
     // Create ad slot
     const { data: adSlot, error: createError } = await supabaseAdmin
       .from('ad_slots')
@@ -72,9 +80,9 @@ export async function POST(request: Request) {
         telegram_handle: telegramHandle.trim(),
         start_date: startDate,
         end_date: endDate,
-        price_ton: totalPrice / 100, // Convert cents to dollars for now
-        payment_id: paymentId,
-        ton_amount: totalPrice / 100,
+        price_ton: totalPriceSol, // Store SOL amount
+        payment_id: transactionHash || paymentId,
+        ton_amount: totalPriceSol,
         is_active: true,
         is_approved: false // Requires admin approval
       })
@@ -89,9 +97,40 @@ export async function POST(request: Request) {
       )
     }
 
+    // Track SOL payment for community pot calculation
+    if (transactionHash && walletAddress) {
+      try {
+        await supabaseAdmin
+          .from('sol_payments')
+          .insert({
+            transaction_hash: transactionHash,
+            user_id: walletAddress, // Use wallet as user ID for banner ads
+            booster_pack_id: 'banner-ad', // Special ID for banner ads
+            amount_sol: totalPriceSol,
+            amount_usd: totalPriceUsd,
+            sol_usd_price: solUsdPrice,
+            recipient_address: process.env.NEXT_PUBLIC_TEST_SOL_RECIPIENT_ADDRESS || ''
+          })
+        
+        console.log('Banner ad SOL payment tracked for community pot:', {
+          transactionHash,
+          amountSol: totalPriceSol,
+          amountUsd: totalPriceUsd
+        })
+      } catch (trackingError) {
+        console.error('Failed to track banner ad payment:', trackingError)
+        // Don't fail the ad creation if tracking fails
+      }
+    }
+
     return NextResponse.json({
       success: true,
       adSlot,
+      pricing: {
+        totalPriceSol: totalPriceSol.toFixed(4),
+        totalPriceUsd: totalPriceUsd.toFixed(2),
+        solUsdPrice: solUsdPrice.toFixed(4)
+      },
       message: 'Ad booking submitted successfully! It will be reviewed and approved within 24 hours.'
     })
 

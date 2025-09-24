@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { Database } from '@/app/types/database'
 import { BoosterPurchaseRequest } from '@/app/types/boosters'
+import { fetchSolUsdPrice } from '@/lib/sol-pricing'
 
 export const dynamic = 'force-dynamic'
 
@@ -199,6 +200,23 @@ export async function POST(request: Request) {
       )
     }
 
+    // Send notification about the purchase
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/notifications/booster-purchased`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          boosterId: boosterPack.id,
+          userId: actualUserId,
+          transactionHash: transactionId,
+          amount: boosterPack.priceSol || 0.01
+        })
+      })
+    } catch (notificationError) {
+      console.error('Failed to send notification:', notificationError)
+      // Don't fail the purchase if notification fails
+    }
+
     // Payment verification is handled by the payment verification API
     // For SOL payments, the amount was already verified in the SOL verification step
 
@@ -277,6 +295,36 @@ export async function POST(request: Request) {
         { error: createError.message },
         { status: 400 }
       )
+    }
+
+    // Track SOL payment for community pot calculation
+    if (paymentMethod === 'sol' && boosterPack.priceSol) {
+      try {
+        // Get current SOL price from live API
+        const solUsdPrice = await fetchSolUsdPrice()
+        const amountUsd = boosterPack.priceSol * solUsdPrice
+        
+        await supabaseAdmin
+          .from('sol_payments')
+          .insert({
+            transaction_hash: transactionId,
+            user_id: actualUserId,
+            booster_pack_id: boosterPack.id,
+            amount_sol: boosterPack.priceSol,
+            amount_usd: amountUsd,
+            sol_usd_price: solUsdPrice,
+            recipient_address: process.env.NEXT_PUBLIC_SOL_RECIPIENT_ADDRESS || process.env.NEXT_PUBLIC_TEST_SOL_RECIPIENT_ADDRESS || ''
+          })
+        
+        console.log('SOL payment tracked for community pot:', {
+          transactionHash: transactionId,
+          amountSol: boosterPack.priceSol,
+          amountUsd: amountUsd
+        })
+      } catch (trackingError) {
+        console.error('Failed to track SOL payment:', trackingError)
+        // Don't fail the purchase if tracking fails
+      }
     }
 
     return new NextResponse(

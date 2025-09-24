@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { useTonPrice } from '../hooks/useTonPrice'
+import { useReownWallet } from '../hooks/useReownWallet'
+import { SolPaymentModal } from './SolPaymentModal'
 import { cn } from '../../lib/utils'
 
 interface AdSlot {
@@ -11,25 +12,20 @@ interface AdSlot {
   price: number
 }
 
-// Check if we're in test mode
-const isTestMode = process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_TEST_MODE === 'true'
-
-// Pricing tiers - test mode uses $0.01 for easy testing
-const PRICING_TIERS = isTestMode ? [
-  { duration_days: 1, base_price_usd: 0.01, multiplier: 1.0 },      // $0.01/day - test mode
-  { duration_days: 3, base_price_usd: 0.03, multiplier: 1.0 },      // $0.03 total - test mode
-  { duration_days: 7, base_price_usd: 0.07, multiplier: 1.0 }       // $0.07 total - test mode
-] : [
-  { duration_days: 1, base_price_usd: 49.99, multiplier: 1.0 },     // $49.99/day - no discount
-  { duration_days: 3, base_price_usd: 139.99, multiplier: 0.93 },   // $46.66/day - 7% off
-  { duration_days: 7, base_price_usd: 314.99, multiplier: 0.90 }    // $44.99/day - 10% off
+// Pricing tiers in SOL
+const PRICING_TIERS = [
+  { duration_days: 1, base_price_sol: 0.2, multiplier: 1.0 },     // 0.2 SOL/day - no discount
+  { duration_days: 3, base_price_sol: 0.56, multiplier: 0.93 },   // 0.187 SOL/day - 7% off
+  { duration_days: 7, base_price_sol: 1.26, multiplier: 0.90 }    // 0.18 SOL/day - 10% off
 ]
 
 export function AdBookingCalendar() {
+  const { isConnected, address } = useReownWallet()
   const [selectedDates, setSelectedDates] = useState<string[]>([])
   const [availableSlots, setAvailableSlots] = useState<AdSlot[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showBookingForm, setShowBookingForm] = useState(false)
+  const [showSolPayment, setShowSolPayment] = useState(false)
   const [formData, setFormData] = useState({
     title: '',
     imageUrl: '',
@@ -38,7 +34,7 @@ export function AdBookingCalendar() {
   })
   const [formErrors, setFormErrors] = useState<{[key: string]: string}>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const { formatUsdWithTon } = useTonPrice()
+  const [error, setError] = useState<string | null>(null)
 
   // Generate next 60 days
   const generateCalendarDays = () => {
@@ -177,54 +173,61 @@ export function AdBookingCalendar() {
   }
 
   const handlePayment = async () => {
+    if (!isConnected || !address) {
+      setError('Please connect your wallet first')
+      return
+    }
+
     if (!validateForm()) {
       return
     }
 
-    setIsSubmitting(true)
+    setShowSolPayment(true)
+  }
 
-    if (isTestMode) {
-      // Test mode: simulate payment and submit to database
-      const confirmed = confirm(`Test Payment: $${totalUsdPrice.toFixed(2)}\n\nProject: ${formData.title}\nDates: ${selectedDates.length} days\n\nThis will submit to database for admin approval. Continue?`)
+  const handleSolPaymentSuccess = async (payment: { id: string; transactionHash: string }) => {
+    try {
+      setIsSubmitting(true)
       
-      if (confirmed) {
-        try {
-          // Submit to database
-          const response = await fetch('/api/ads/submit', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              title: formData.title,
-              imageUrl: formData.imageUrl,
-              linkUrl: formData.linkUrl,
-              telegramHandle: formData.telegramHandle,
-              selectedDates,
-              totalPrice: totalUsdPrice,
-              paymentId: `test-${Date.now()}`
-            })
-          })
+      const totalSolPrice = calculateTotalPrice()
+      
+      const response = await fetch('/api/ads/submit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: formData.title,
+          imageUrl: formData.imageUrl,
+          linkUrl: formData.linkUrl,
+          telegramHandle: formData.telegramHandle,
+          selectedDates,
+          totalPrice: totalSolPrice * 100, // Convert SOL to cents for API
+          transactionHash: payment.transactionHash,
+          walletAddress: address
+        })
+      })
 
-          if (response.ok) {
-            await response.json()
-            alert('✅ Ad booking submitted successfully!\n\nYour ad is pending approval. Check the admin panel to approve it.\n\nAdmin panel: /admin')
-            setShowBookingForm(false)
-            setFormData({ title: '', imageUrl: '', linkUrl: '', telegramHandle: '' })
-            setSelectedDates([])
-          } else {
-            const error = await response.json()
-            alert(`❌ Submission failed: ${error.error}`)
-          }
-        } catch (error) {
-          console.error('Error submitting ad:', error)
-          alert('❌ Failed to submit ad booking')
-        }
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to submit ad booking')
       }
-    } else {
-      // Production mode: show Telegram requirement
-      alert('💡 TON payments are only available within the Telegram Mini App.\n\nTo test payments:\n1. Deploy to Telegram Mini App\n2. Or use test mode in development')
-    }
 
-    setIsSubmitting(false)
+      // Success - reset form and close modals
+      setFormData({ title: '', imageUrl: '', linkUrl: '', telegramHandle: '' })
+      setSelectedDates([])
+      setShowBookingForm(false)
+      setShowSolPayment(false)
+      setError(null)
+      
+      alert('✅ Banner ad submitted successfully!\n\nYour ad is pending admin approval. It will be reviewed and approved within 24 hours.\n\nAdmin panel: /admin')
+    } catch (error) {
+      console.error('Error submitting ad:', error)
+      setError(error instanceof Error ? error.message : 'Failed to submit ad booking')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const updateFormData = (field: string, value: string) => {
@@ -243,10 +246,10 @@ export function AdBookingCalendar() {
     
     if (tier) {
       // Use the exact tier price
-      return tier.base_price_usd
+      return tier.base_price_sol
     } else {
       // For custom durations, calculate based on daily rate
-      return 49.99 * duration
+      return 0.2 * duration
     }
   }
 
@@ -258,7 +261,7 @@ export function AdBookingCalendar() {
     })
   }
 
-  const totalUsdPrice = calculateTotalPrice()
+  const totalSolPrice = calculateTotalPrice()
 
   return (
     <div className="space-y-8">
@@ -272,10 +275,10 @@ export function AdBookingCalendar() {
                 {tier.duration_days} Day{tier.duration_days > 1 ? 's' : ''}
               </div>
               <div className="text-purple-400 font-semibold text-xl mb-1">
-                ${tier.base_price_usd}
+                {tier.base_price_sol} SOL
               </div>
               <div className="text-gray-400 text-xs">
-                ${(tier.base_price_usd / tier.duration_days).toFixed(2)}/day
+                {(tier.base_price_sol / tier.duration_days).toFixed(3)} SOL/day
               </div>
               {tier.multiplier < 1 && (
                 <div className="text-green-400 text-sm font-semibold mt-1">
@@ -286,7 +289,7 @@ export function AdBookingCalendar() {
           ))}
         </div>
         <div className="mt-4 text-center text-sm text-gray-400">
-          💡 Longer campaigns get better rates • Prices in USD, paid in TON at checkout
+          💡 Longer campaigns get better rates • Prices in SOL, paid with Solana wallet
         </div>
       </div>
 
@@ -298,9 +301,6 @@ export function AdBookingCalendar() {
         <div className="mb-6 p-4 bg-gray-800/30 rounded-lg">
           <h3 className="text-white font-semibold mb-3">
             Quick Select (starting from today):
-            {isTestMode && (
-              <span className="text-yellow-400 text-sm ml-2">🧪 TEST MODE</span>
-            )}
           </h3>
           <div className="flex flex-wrap gap-3">
             <Button
@@ -308,21 +308,21 @@ export function AdBookingCalendar() {
               className="bg-blue-600 hover:bg-blue-700 text-sm"
               size="sm"
             >
-              📦 1 Day (${PRICING_TIERS.find(t => t.duration_days === 1)?.base_price_usd.toFixed(2)})
+              📦 1 Day (${PRICING_TIERS.find(t => t.duration_days === 1)?.base_price_sol.toFixed(3)} SOL)
             </Button>
             <Button
               onClick={() => handleBulkSelect(calendarDays[0], 3)}
               className="bg-green-600 hover:bg-green-700 text-sm"
               size="sm"
             >
-              📦 3 Days (${PRICING_TIERS.find(t => t.duration_days === 3)?.base_price_usd.toFixed(2)})
+              📦 3 Days (${PRICING_TIERS.find(t => t.duration_days === 3)?.base_price_sol.toFixed(3)} SOL)
             </Button>
             <Button
               onClick={() => handleBulkSelect(calendarDays[0], 7)}
               className="bg-purple-600 hover:bg-purple-700 text-sm"
               size="sm"
             >
-              📦 7 Days (${PRICING_TIERS.find(t => t.duration_days === 7)?.base_price_usd.toFixed(2)})
+              📦 7 Days (${PRICING_TIERS.find(t => t.duration_days === 7)?.base_price_sol.toFixed(3)} SOL)
             </Button>
             <Button
               onClick={clearSelection}
@@ -335,7 +335,6 @@ export function AdBookingCalendar() {
           </div>
           <p className="text-xs text-gray-400 mt-2">
             Or manually select individual dates below
-            {isTestMode && " • Test mode: $0.01 per day"}
           </p>
         </div>
 
@@ -347,30 +346,65 @@ export function AdBookingCalendar() {
           ))}
         </div>
         
-        <div className="grid grid-cols-7 gap-2">
-          {calendarDays.map((date) => {
-            const isAvailable = isDateAvailable(date)
-            const isSelected = isDateSelected(date)
+        <div className="space-y-4">
+          {(() => {
+            // Group calendar days by month
+            const months = []
+            let currentMonth = null
+            let currentMonthDays = []
             
-            return (
-              <Button
-                key={date}
-                onClick={() => handleDateClick(date)}
-                disabled={!isAvailable}
-                className={cn(
-                  "h-12 text-sm transition-all duration-200",
-                  isSelected 
-                    ? "bg-purple-600 hover:bg-purple-700 text-white" 
-                    : isAvailable 
-                      ? "bg-gray-800 hover:bg-gray-700 text-white"
-                      : "bg-gray-900 text-gray-500 cursor-not-allowed",
-                  !isAvailable && "opacity-50"
-                )}
-              >
-                {formatDate(date)}
-              </Button>
-            )
-          })}
+            calendarDays.forEach((date) => {
+              const dateObj = new Date(date)
+              const monthYear = dateObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+              
+              if (currentMonth !== monthYear) {
+                if (currentMonthDays.length > 0) {
+                  months.push({ month: currentMonth, days: currentMonthDays })
+                }
+                currentMonth = monthYear
+                currentMonthDays = []
+              }
+              currentMonthDays.push(date)
+            })
+            
+            // Add the last month
+            if (currentMonthDays.length > 0) {
+              months.push({ month: currentMonth, days: currentMonthDays })
+            }
+            
+            return months.map((monthData, monthIndex) => (
+              <div key={monthIndex} className="space-y-2">
+                <h4 className="text-lg font-semibold text-white text-center">
+                  {monthData.month}
+                </h4>
+                <div className="grid grid-cols-7 gap-2">
+                  {monthData.days.map((date) => {
+                    const isAvailable = isDateAvailable(date)
+                    const isSelected = isDateSelected(date)
+                    
+                    return (
+                      <Button
+                        key={date}
+                        onClick={() => handleDateClick(date)}
+                        disabled={!isAvailable}
+                        className={cn(
+                          "h-12 text-sm transition-all duration-200",
+                          isSelected 
+                            ? "bg-purple-600 hover:bg-purple-700 text-white" 
+                            : isAvailable 
+                              ? "bg-gray-800 hover:bg-gray-700 text-white"
+                              : "bg-gray-900 text-gray-500 cursor-not-allowed",
+                          !isAvailable && "opacity-50"
+                        )}
+                      >
+                        {formatDate(date)}
+                      </Button>
+                    )
+                  })}
+                </div>
+              </div>
+            ))
+          })()}
         </div>
 
         {/* Legend */}
@@ -406,10 +440,10 @@ export function AdBookingCalendar() {
             <div>
               <div className="text-gray-400 text-sm">Total Price:</div>
               <div className="text-2xl font-bold text-white">
-                ${totalUsdPrice.toFixed(2)}
+                {totalSolPrice.toFixed(3)} SOL
               </div>
               <div className="text-sm text-gray-400">
-                TON amount calculated at checkout
+                Pay with Solana wallet
               </div>
             </div>
             <Button
@@ -507,13 +541,13 @@ export function AdBookingCalendar() {
               <div className="border-t border-gray-700 pt-4">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-white mb-2">
-                    ${totalUsdPrice.toFixed(2)}
+                    {totalSolPrice.toFixed(3)} SOL
                   </div>
                   <div className="text-sm text-gray-400 mb-2">
                     {selectedDates.length} day{selectedDates.length > 1 ? 's' : ''} • Premium placement
                   </div>
                   <div className="text-purple-400 text-sm">
-                    {formatUsdWithTon(totalUsdPrice)}
+                    Pay with Solana wallet
                   </div>
                 </div>
               </div>
@@ -531,12 +565,25 @@ export function AdBookingCalendar() {
                   disabled={isSubmitting}
                   className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:opacity-50"
                 >
-                  {isSubmitting ? 'Processing...' : isTestMode ? 'Test Payment' : 'Pay with TON'}
+                  {isSubmitting ? 'Processing...' : 'Pay with SOL'}
                 </Button>
               </div>
             </div>
           </div>
         </div>
+      )}
+
+      {/* SOL Payment Modal */}
+      {showSolPayment && (
+        <SolPaymentModal
+          isOpen={showSolPayment}
+          onClose={() => setShowSolPayment(false)}
+          onPaymentSuccess={handleSolPaymentSuccess}
+          amount={totalSolPrice}
+          recipientAddress={process.env.NEXT_PUBLIC_TEST_SOL_RECIPIENT_ADDRESS || ''}
+          description={`Banner Ad - ${formData.title}`}
+          claimingWalletAddress={address || ''}
+        />
       )}
     </div>
   )

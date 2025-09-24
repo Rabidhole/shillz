@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { fetchSolUsdPrice } from '@/lib/sol-pricing'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,20 +33,36 @@ async function fetchTonBalanceTon(address: string): Promise<number> {
 
 export async function POST() {
   try {
-    const trackWallet = process.env.TON_TRACK_WALLET
-    const goalUsd = parseFloat(process.env.POT_GOAL_USD || '5000')
-    if (!trackWallet) return NextResponse.json({ error: 'Missing TON_TRACK_WALLET' }, { status: 400 })
+    // Get the current community pot amount (20% of weekly SOL earnings)
+    const { data: potAmount, error: potError } = await supabaseAdmin
+      .rpc('get_community_pot_amount')
 
-    const [tonUsd, balTon] = await Promise.all([
-      fetchTonUsdPrice(),
-      fetchTonBalanceTon(trackWallet)
-    ])
+    if (potError) {
+      console.error('Error getting community pot amount:', potError)
+      return NextResponse.json({ error: 'Failed to calculate community pot' }, { status: 500 })
+    }
 
-    const walletUsd = balTon * tonUsd
-    const potUsd = walletUsd * 0.10
+    // Get weekly earnings for additional context
+    const { data: weeklyEarnings, error: earningsError } = await supabaseAdmin
+      .rpc('get_weekly_sol_earnings')
 
-    if (potUsd < goalUsd) {
-      return NextResponse.json({ ok: false, reason: 'pot_below_goal', potUsd, goalUsd })
+    if (earningsError) {
+      console.error('Error getting weekly earnings:', earningsError)
+    }
+
+    const potUsd = potAmount || 0
+    const weeklyEarningsUsd = weeklyEarnings || 0
+
+    // Dynamic goal: pot must have some value (at least $1) to create snapshot
+    const minPotThreshold = 1.0
+    if (potUsd < minPotThreshold) {
+      return NextResponse.json({ 
+        ok: false, 
+        reason: 'pot_below_threshold', 
+        potUsd, 
+        minThreshold: minPotThreshold,
+        message: 'Community pot needs at least $1 to create snapshot'
+      })
     }
 
     // Guard: check if a snapshot for this approximate state already exists (within 1% tolerance)
@@ -77,15 +94,18 @@ export async function POST() {
     // Keep it simple: top 10 fixed shares, others 0.
     const shares = [0.12, 0.08, 0.06, 0.03, 0.03, 0.03, 0.03, 0.03, 0.03, 0.03]
 
+    // Get current SOL price for context
+    const currentSolPrice = await fetchSolUsdPrice()
+    
     const { data: snapshot, error: snapErr } = await supabaseAdmin
       .from('pot_snapshots')
       .insert({
         pot_usd: potUsd.toFixed(2),
-        goal_usd: goalUsd.toFixed(2),
-        wallet_address: trackWallet,
-        wallet_balance_ton: balTon.toFixed(9),
-        wallet_balance_usd: walletUsd.toFixed(2),
-        ton_usd: tonUsd.toFixed(4)
+        goal_usd: potUsd.toFixed(2), // Dynamic goal = pot amount
+        wallet_address: process.env.NEXT_PUBLIC_SOL_RECIPIENT_ADDRESS || process.env.NEXT_PUBLIC_TEST_SOL_RECIPIENT_ADDRESS || 'sol-wallet',
+        wallet_balance_ton: '0', // Not used for SOL system
+        wallet_balance_usd: weeklyEarningsUsd.toFixed(2), // Weekly earnings instead of wallet balance
+        ton_usd: currentSolPrice.toFixed(4) // SOL price instead of TON price
       })
       .select('id')
       .single()

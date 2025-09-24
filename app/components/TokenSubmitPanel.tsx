@@ -135,13 +135,28 @@ export function TokenSubmitPanel({ className, onSuccess }: TokenSubmitPanelProps
                 defaultValue=""
               >
                 <option value="" disabled>Select Chain *</option>
-                <option value="Ethereum">Ethereum</option>
-                <option value="BSC">BSC</option>
-                <option value="Polygon">Polygon</option>
-                <option value="Arbitrum">Arbitrum</option>
-                <option value="Optimism">Optimism</option>
-                <option value="Base">Base</option>
-                <option value="Avalanche">Avalanche</option>
+                <option value="solana">Solana</option>
+                <option value="ethereum">Ethereum</option>
+                <option value="base">Base</option>
+                <option value="ton">TON</option>
+                <option value="binance">Binance Smart Chain</option>
+                <option value="arbitrum">Arbitrum</option>
+                <option value="optimism">Optimism</option>
+                <option value="sui">SUI</option>
+                <option value="sonic">Sonic</option>
+                <option value="linea">Linea</option>
+                <option value="avax">Avalanche (AVAX)</option>
+                <option value="cronos">Cronos</option>
+                <option value="multiversx">MultiversX</option>
+                <option value="tron">TRON</option>
+                <option value="polygon">Polygon</option>
+                <option value="fantom">Fantom</option>
+                <option value="aurora">Aurora</option>
+                <option value="celo">Celo</option>
+                <option value="gnosis">Gnosis</option>
+                <option value="mantle">Mantle</option>
+                <option value="scroll">Scroll</option>
+                <option value="zksync">zkSync</option>
               </select>
 
               <input

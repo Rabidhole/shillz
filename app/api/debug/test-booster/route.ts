@@ -8,7 +8,7 @@ const supabaseAdmin = createClient(
 
 export async function GET() {
   try {
-    const testWalletAddress = '0x18521c6f092B2261f7E2771A4D02c3cC7010DDE3' // Use admin wallet for testing
+    const testWalletAddress = process.env.NEXT_PUBLIC_TEST_SOL_RECIPIENT_ADDRESS || '0x18521c6f092B2261f7E2771A4D02c3cC7010DDE3' // Use admin wallet for testing
     
     console.log('=== TESTING BOOSTER SYSTEM ===')
     console.log('Test wallet address:', testWalletAddress)

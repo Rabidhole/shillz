@@ -15,7 +15,10 @@ const supabaseAdmin = createClient(
   }
 )
 
-const ADMIN_WALLET = '0x18521c6f092B2261f7E2771A4D02c3cC7010DDE3'
+const ADMIN_WALLET = process.env.NEXT_PUBLIC_TEST_SOL_RECIPIENT_ADDRESS || ''
+
+console.log('Admin Reject API - ADMIN_WALLET:', ADMIN_WALLET)
+console.log('Admin Reject API - env var:', process.env.NEXT_PUBLIC_TEST_SOL_RECIPIENT_ADDRESS)
 
 export async function POST(
   request: Request,

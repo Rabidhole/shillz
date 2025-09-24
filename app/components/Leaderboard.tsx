@@ -12,6 +12,8 @@ interface LeaderboardProps {
   search: string
 }
 
+type ChainFilter = 'all' | 'solana' | 'ethereum' | 'base' | 'ton' | 'binance' | 'arbitrum' | 'optimism' | 'sui' | 'sonic' | 'linea' | 'avax' | 'cronos' | 'multiversx' | 'tron' | 'polygon' | 'fantom' | 'aurora' | 'celo' | 'gnosis' | 'mantle' | 'scroll' | 'zksync'
+
 interface LeaderboardToken extends Token {
   rank: number
   hot_shills: number
@@ -22,6 +24,9 @@ export function Leaderboard({ search }: LeaderboardProps) {
   const [tokens, setTokens] = useState<LeaderboardToken[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [chainFilter, setChainFilter] = useState<ChainFilter>('all')
+  const [displayCount, setDisplayCount] = useState(10)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
 
   // Fetch initial leaderboard data
   const fetchLeaderboard = useCallback(async () => {
@@ -74,6 +79,11 @@ export function Leaderboard({ search }: LeaderboardProps) {
       setIsLoading(false)
     }
   }, [supabase, search])
+
+  // Load more function for lazy loading
+  const loadMore = useCallback(() => {
+    setDisplayCount(prev => prev + 10)
+  }, [])
 
   // Initial fetch
   useEffect(() => {
@@ -154,9 +164,76 @@ export function Leaderboard({ search }: LeaderboardProps) {
         </Button>
       </div>
 
+      {/* Chain Filter */}
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-gray-400">Filter by chain:</span>
+        <select
+          value={chainFilter}
+          onChange={(e) => setChainFilter(e.target.value as ChainFilter)}
+          className="bg-gray-800 border border-gray-600 rounded-md px-3 py-1 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="all">All Chains</option>
+          <option value="solana">Solana</option>
+          <option value="ethereum">Ethereum</option>
+          <option value="base">Base</option>
+          <option value="ton">TON</option>
+          <option value="binance">Binance Smart Chain</option>
+          <option value="arbitrum">Arbitrum</option>
+          <option value="optimism">Optimism</option>
+          <option value="sui">SUI</option>
+          <option value="sonic">Sonic</option>
+          <option value="linea">Linea</option>
+              <option value="avax">Avalanche (AVAX)</option>
+          <option value="cronos">Cronos</option>
+          <option value="multiversx">MultiversX</option>
+          <option value="tron">TRON</option>
+          <option value="polygon">Polygon</option>
+          <option value="fantom">Fantom</option>
+          <option value="aurora">Aurora</option>
+          <option value="celo">Celo</option>
+          <option value="gnosis">Gnosis</option>
+          <option value="mantle">Mantle</option>
+          <option value="scroll">Scroll</option>
+          <option value="zksync">zkSync</option>
+        </select>
+      </div>
+
       {/* Compact Leaderboard */}
       <div className="space-y-2">
-        {tokens.map((token) => (
+        {tokens
+          .filter(token => {
+            const matchesSearch = (token.name?.toLowerCase().includes(search.toLowerCase()) || false) ||
+              (token.contract_address?.toLowerCase().includes(search.toLowerCase()) || false)
+            
+            const matchesChain = chainFilter === 'all' || 
+              (chainFilter === 'solana' && token.chain?.toLowerCase() === 'solana') ||
+              (chainFilter === 'ethereum' && token.chain?.toLowerCase() === 'ethereum') ||
+              (chainFilter === 'base' && token.chain?.toLowerCase() === 'base') ||
+              (chainFilter === 'ton' && token.chain?.toLowerCase() === 'ton') ||
+              (chainFilter === 'binance' && token.chain?.toLowerCase() === 'binance') ||
+              (chainFilter === 'arbitrum' && token.chain?.toLowerCase() === 'arbitrum') ||
+              (chainFilter === 'optimism' && token.chain?.toLowerCase() === 'optimism') ||
+              (chainFilter === 'sui' && token.chain?.toLowerCase() === 'sui') ||
+              (chainFilter === 'sonic' && token.chain?.toLowerCase() === 'sonic') ||
+              (chainFilter === 'linea' && token.chain?.toLowerCase() === 'linea') ||
+              (chainFilter === 'avax' && token.chain?.toLowerCase() === 'avax') ||
+              (chainFilter === 'cronos' && token.chain?.toLowerCase() === 'cronos') ||
+              (chainFilter === 'multiversx' && token.chain?.toLowerCase() === 'multiversx') ||
+              (chainFilter === 'tron' && token.chain?.toLowerCase() === 'tron') ||
+              (chainFilter === 'polygon' && token.chain?.toLowerCase() === 'polygon') ||
+              (chainFilter === 'fantom' && token.chain?.toLowerCase() === 'fantom') ||
+              (chainFilter === 'aurora' && token.chain?.toLowerCase() === 'aurora') ||
+              (chainFilter === 'celo' && token.chain?.toLowerCase() === 'celo') ||
+              (chainFilter === 'gnosis' && token.chain?.toLowerCase() === 'gnosis') ||
+              (chainFilter === 'mantle' && token.chain?.toLowerCase() === 'mantle') ||
+              (chainFilter === 'scroll' && token.chain?.toLowerCase() === 'scroll') ||
+              (chainFilter === 'zksync' && token.chain?.toLowerCase() === 'zksync')
+            
+            
+            return matchesSearch && matchesChain
+          })
+          .slice(0, displayCount)
+          .map((token) => (
           <Link 
             key={token.id} 
             href={`/tokens/${token.id}`}
@@ -226,6 +303,20 @@ export function Leaderboard({ search }: LeaderboardProps) {
           </Link>
         ))}
       </div>
+
+      {/* Load More Button */}
+      {tokens.length > displayCount && (
+        <div className="text-center pt-4">
+          <Button
+            onClick={loadMore}
+            variant="outline"
+            disabled={isLoadingMore}
+            className="bg-gray-800 hover:bg-gray-700 border-gray-600"
+          >
+            {isLoadingMore ? 'Loading...' : `Load More (${tokens.length - displayCount} remaining)`}
+          </Button>
+        </div>
+      )}
 
       {/* Empty State */}
       {tokens.length === 0 && !isLoading && (

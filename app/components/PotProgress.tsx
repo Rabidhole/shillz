@@ -3,9 +3,19 @@
 import { useEffect, useState } from 'react'
 
 interface PotData {
-  wallet: { address: string; balanceTon: number; usd: number }
   pot: { usd: number; goalUsd: number; progress: number }
-  meta: { tonUsd: number; updatedAt: string }
+  meta: { 
+    solUsdPrice: number; 
+    weeklyEarnings: number; 
+    percentage: number; 
+    updatedAt: string;
+    recentPayments: Array<{
+      amount_sol: number;
+      amount_usd: number;
+      created_at: string;
+      sol_usd_price: number;
+    }>;
+  }
 }
 
 export function PotProgress() {
@@ -47,24 +57,28 @@ export function PotProgress() {
     )
   }
 
-  const pct = Math.round((data.pot.progress || 0) * 100)
-
   return (
     <div className="p-4 rounded-lg bg-gray-900/40 border border-gray-700/30">
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-3">
         <div className="text-white font-semibold">Community Pot</div>
-        <div className="text-sm text-gray-400">Goal: ${data.pot.goalUsd.toLocaleString()}</div>
+        <div className="text-sm text-gray-400">20% of weekly earnings</div>
       </div>
-      <div className="w-full h-3 bg-gray-800 rounded-md overflow-hidden">
-        <div className="h-full bg-blue-600" style={{ width: `${pct}%` }} />
-      </div>
-      <div className="flex items-center justify-between mt-2 text-sm">
-        <div className="text-blue-300 font-semibold">${data.pot.usd.toFixed(2)} (10% of wallet)</div>
-        <div className="text-gray-400">{pct}%</div>
+      <div className="text-center">
+        <div className="text-3xl font-bold text-blue-300 mb-1">
+          ${data.pot.usd.toFixed(2)}
+        </div>
+        <div className="text-sm text-gray-400">
+          Ready for distribution to top shillers
+        </div>
       </div>
       <div className="mt-2 text-xs text-gray-500">
-        Tracking wallet {data.wallet.address} • TON ${data.meta.tonUsd.toFixed(2)} • Updated {new Date(data.meta.updatedAt).toLocaleTimeString()}
+        Weekly earnings: ${data.meta.weeklyEarnings.toFixed(2)} • SOL ${data.meta.solUsdPrice.toFixed(2)} (live) • Updated {new Date(data.meta.updatedAt).toLocaleTimeString()}
       </div>
+      {data.meta.recentPayments.length > 0 && (
+        <div className="mt-2 text-xs text-gray-400">
+          Recent: {data.meta.recentPayments.length} payments this week
+        </div>
+      )}
     </div>
   )
 }
