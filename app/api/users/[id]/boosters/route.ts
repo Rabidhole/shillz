@@ -57,7 +57,7 @@ export async function GET(
 
     // Find the user by wallet address
     const { data: user, error: userError } = await supabaseAdmin
-      .from('users_new')
+      .from('users')
       .select('id')
       .eq('wallet_address', walletAddress)
       .single()

@@ -12,12 +12,8 @@ interface AdSlot {
   price: number
 }
 
-// Pricing tiers in SOL
-const PRICING_TIERS = [
-  { duration_days: 1, base_price_sol: 0.2, multiplier: 1.0 },     // 0.2 SOL/day - no discount
-  { duration_days: 3, base_price_sol: 0.56, multiplier: 0.93 },   // 0.187 SOL/day - 7% off
-  { duration_days: 7, base_price_sol: 1.26, multiplier: 0.90 }    // 0.18 SOL/day - 10% off
-]
+// Flat rate pricing - no tiers or discounts
+const FLAT_RATE_SOL = 0.2 // 0.2 SOL per day
 
 export function AdBookingCalendar() {
   const { isConnected, address } = useReownWallet()
@@ -240,17 +236,7 @@ export function AdBookingCalendar() {
 
   const calculateTotalPrice = () => {
     if (selectedDates.length === 0) return 0
-
-    const duration = selectedDates.length
-    const tier = PRICING_TIERS.find(t => t.duration_days === duration)
-    
-    if (tier) {
-      // Use the exact tier price
-      return tier.base_price_sol
-    } else {
-      // For custom durations, calculate based on daily rate
-      return 0.2 * duration
-    }
+    return FLAT_RATE_SOL * selectedDates.length
   }
 
   const formatDate = (dateStr: string) => {
@@ -265,31 +251,17 @@ export function AdBookingCalendar() {
 
   return (
     <div className="space-y-8">
-      {/* Pricing Tiers - Instant Display */}
+      {/* Simple Pricing Display */}
       <div className="bg-gray-900/50 border border-gray-700 rounded-lg p-6">
-        <h2 className="text-2xl font-bold text-white mb-4">💰 Pricing Tiers</h2>
-        <div className="grid md:grid-cols-3 gap-4">
-          {PRICING_TIERS.map((tier) => (
-            <div key={tier.duration_days} className="bg-gray-800/50 rounded-lg p-4 text-center border border-gray-600">
-              <div className="text-lg font-bold text-white mb-1">
-                {tier.duration_days} Day{tier.duration_days > 1 ? 's' : ''}
-              </div>
-              <div className="text-purple-400 font-semibold text-xl mb-1">
-                {tier.base_price_sol} SOL
-              </div>
-              <div className="text-gray-400 text-xs">
-                {(tier.base_price_sol / tier.duration_days).toFixed(3)} SOL/day
-              </div>
-              {tier.multiplier < 1 && (
-                <div className="text-green-400 text-sm font-semibold mt-1">
-                  {Math.round((1 - tier.multiplier) * 100)}% OFF
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-        <div className="mt-4 text-center text-sm text-gray-400">
-          💡 Longer campaigns get better rates • Prices in SOL, paid with Solana wallet
+        <h2 className="text-2xl font-bold text-white mb-4">💰 Simple Pricing</h2>
+        <div className="text-center">
+          <div className="text-4xl font-bold text-purple-400 mb-2">
+            {FLAT_RATE_SOL} SOL
+          </div>
+          <div className="text-gray-300 text-lg mb-2">per day</div>
+          <div className="text-gray-400 text-sm">
+            No tiers, no discounts • Just simple, fair pricing
+          </div>
         </div>
       </div>
 
@@ -308,21 +280,21 @@ export function AdBookingCalendar() {
               className="bg-blue-600 hover:bg-blue-700 text-sm"
               size="sm"
             >
-              📦 1 Day (${PRICING_TIERS.find(t => t.duration_days === 1)?.base_price_sol.toFixed(3)} SOL)
+              📦 1 Day (${(FLAT_RATE_SOL * 1).toFixed(3)} SOL)
             </Button>
             <Button
               onClick={() => handleBulkSelect(calendarDays[0], 3)}
               className="bg-green-600 hover:bg-green-700 text-sm"
               size="sm"
             >
-              📦 3 Days (${PRICING_TIERS.find(t => t.duration_days === 3)?.base_price_sol.toFixed(3)} SOL)
+              📦 3 Days (${(FLAT_RATE_SOL * 3).toFixed(3)} SOL)
             </Button>
             <Button
               onClick={() => handleBulkSelect(calendarDays[0], 7)}
               className="bg-purple-600 hover:bg-purple-700 text-sm"
               size="sm"
             >
-              📦 7 Days (${PRICING_TIERS.find(t => t.duration_days === 7)?.base_price_sol.toFixed(3)} SOL)
+              📦 7 Days (${(FLAT_RATE_SOL * 7).toFixed(3)} SOL)
             </Button>
             <Button
               onClick={clearSelection}
@@ -378,29 +350,55 @@ export function AdBookingCalendar() {
                   {monthData.month}
                 </h4>
                 <div className="grid grid-cols-7 gap-2">
-                  {monthData.days.map((date) => {
-                    const isAvailable = isDateAvailable(date)
-                    const isSelected = isDateSelected(date)
+                  {(() => {
+                    // Get the first day of the month and calculate offset
+                    const firstDate = new Date(monthData.days[0])
+                    const firstDayOfWeek = firstDate.getDay() // 0 = Sunday, 1 = Monday, etc.
                     
-                    return (
-                      <Button
-                        key={date}
-                        onClick={() => handleDateClick(date)}
-                        disabled={!isAvailable}
-                        className={cn(
-                          "h-12 text-sm transition-all duration-200",
-                          isSelected 
-                            ? "bg-purple-600 hover:bg-purple-700 text-white" 
-                            : isAvailable 
-                              ? "bg-gray-800 hover:bg-gray-700 text-white"
-                              : "bg-gray-900 text-gray-500 cursor-not-allowed",
-                          !isAvailable && "opacity-50"
-                        )}
-                      >
-                        {formatDate(date)}
-                      </Button>
-                    )
-                  })}
+                    // Create array with empty cells for proper alignment
+                    const cells = []
+                    
+                    // Add empty cells for days before the first day of the month
+                    for (let i = 0; i < firstDayOfWeek; i++) {
+                      cells.push(
+                        <div key={`empty-${i}`} className="h-12"></div>
+                      )
+                    }
+                    
+                    // Add actual date cells
+                    monthData.days.forEach((date) => {
+                      const isAvailable = isDateAvailable(date)
+                      const isSelected = isDateSelected(date)
+                      
+                      cells.push(
+                        <Button
+                          key={date}
+                          onClick={() => handleDateClick(date)}
+                          disabled={!isAvailable}
+                          className={cn(
+                            "h-12 text-sm transition-all duration-200",
+                            isSelected 
+                              ? "bg-purple-600 hover:bg-purple-700 text-white" 
+                              : isAvailable 
+                                ? "bg-gray-800 hover:bg-gray-700 text-white"
+                                : "bg-gray-900 text-gray-500 cursor-not-allowed",
+                            !isAvailable && "opacity-50"
+                          )}
+                        >
+                          <div className="flex flex-col items-center">
+                            <span className="font-medium">
+                              {new Date(date).getDate()}
+                            </span>
+                            <span className="text-xs opacity-75">
+                              {new Date(date).toLocaleDateString('en-US', { weekday: 'short' })}
+                            </span>
+                          </div>
+                        </Button>
+                      )
+                    })
+                    
+                    return cells
+                  })()}
                 </div>
               </div>
             ))

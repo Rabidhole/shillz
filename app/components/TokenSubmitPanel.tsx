@@ -14,12 +14,14 @@ export function TokenSubmitPanel({ className, onSuccess }: TokenSubmitPanelProps
   const [isExpanded, setIsExpanded] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
   const [existingTokenId, setExistingTokenId] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setIsLoading(true)
     setError(null)
+    setSuccess(null)
     setExistingTokenId(null)
 
     const formData = new FormData(e.currentTarget)
@@ -61,11 +63,16 @@ export function TokenSubmitPanel({ className, onSuccess }: TokenSubmitPanelProps
         return
       }
 
-      // Reset form and state
-      e.currentTarget.reset()
-      setIsExpanded(false)
-      setError(null)
-      onSuccess?.()
+      // Show success message
+      setSuccess(`Token "${data.name}" added successfully!`)
+      
+      // Reset form and state after a delay
+      setTimeout(() => {
+        e.currentTarget.reset()
+        setIsExpanded(false)
+        setSuccess(null)
+        onSuccess?.()
+      }, 2000)
 
     } catch (error) {
       setError('Failed to submit token. Please try again.')
@@ -104,6 +111,12 @@ export function TokenSubmitPanel({ className, onSuccess }: TokenSubmitPanelProps
                   </Link>
                 </p>
               )}
+            </div>
+          )}
+
+          {success && (
+            <div className="mb-4 p-3 bg-green-900/20 border border-green-500/20 rounded-lg text-green-400 text-sm">
+              <p>✅ {success}</p>
             </div>
           )}
 

@@ -47,7 +47,7 @@ export default function AdvertisePage() {
                   <div className="text-gray-400">• 1200x300px banner</div>
                   <div className="text-gray-400">• Premium visibility</div>
                   <div className="text-gray-400">• Calendar booking</div>
-                  <div className="text-blue-400 font-semibold">• Starting at 0.1 SOL/day</div>
+                  <div className="text-blue-400 font-semibold">• Starting at 0.2 SOL/day</div>
                 </div>
               </div>
             </div>
@@ -144,11 +144,11 @@ export default function AdvertisePage() {
         {/* Stats */}
         <div className="grid md:grid-cols-3 gap-6 mb-8">
           <div className="bg-gray-900/50 border border-gray-700 rounded-lg p-6 text-center">
-            <div className="text-3xl font-bold text-purple-400 mb-2">10K+</div>
-            <div className="text-gray-300">Daily Active Users</div>
+            <div className="text-3xl font-bold text-red-400 mb-2">0%</div>
+            <div className="text-gray-300">Greedy Influencers</div>
           </div>
           <div className="bg-gray-900/50 border border-gray-700 rounded-lg p-6 text-center">
-            <div className="text-3xl font-bold text-green-400 mb-2">95%</div>
+            <div className="text-3xl font-bold text-green-400 mb-2">100%</div>
             <div className="text-gray-300">Crypto Audience</div>
           </div>
           <div className="bg-gray-900/50 border border-gray-700 rounded-lg p-6 text-center">

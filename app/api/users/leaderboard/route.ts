@@ -36,11 +36,11 @@ export async function GET(request: Request) {
     const provided = searchParams.get('user')
     const walletAddress = normalizeWalletAddress(provided)
 
-    // Top 10 shillers by total_shills
+    // Top 10 shillers by weekly_shills
     const { data: topUsers, error: topErr } = await supabaseAdmin
-      .from('users_new')
-      .select('wallet_address, total_shills')
-      .order('total_shills', { ascending: false })
+      .from('users')
+      .select('wallet_address, total_shills, daily_shills, weekly_shills')
+      .order('weekly_shills', { ascending: false })
       .limit(10)
 
     if (topErr) {
@@ -49,8 +49,8 @@ export async function GET(request: Request) {
 
     // Current user's row
     const { data: userRow, error: userErr } = await supabaseAdmin
-      .from('users_new')
-      .select('wallet_address, total_shills')
+      .from('users')
+      .select('wallet_address, total_shills, daily_shills, weekly_shills')
       .eq('wallet_address', walletAddress)
       .single()
 
@@ -62,30 +62,31 @@ export async function GET(request: Request) {
     let currentUser = userRow || null
     if (!currentUser) {
       const { data: created, error: createErr } = await supabaseAdmin
-        .from('users_new')
+        .from('users')
         .insert({ 
           wallet_address: walletAddress, 
-          telegram_username: `wallet_${walletAddress}`,
           tier: 'degen', 
-          total_shills: 0 
+          total_shills: 0,
+          daily_shills: 0,
+          weekly_shills: 0
         })
-        .select('wallet_address, total_shills')
+        .select('wallet_address, total_shills, daily_shills, weekly_shills')
         .single()
 
       if (createErr && createErr.code !== '23505') { // ignore conflict if created concurrently
         return NextResponse.json({ error: createErr.message }, { status: 400 })
       }
 
-      currentUser = created || { wallet_address: walletAddress, total_shills: 0 }
+      currentUser = created || { wallet_address: walletAddress, total_shills: 0, daily_shills: 0, weekly_shills: 0 }
     }
     let currentRank: number | null = null
 
     if (currentUser) {
-      // Count users with strictly greater total_shills
+      // Count users with strictly greater weekly_shills
       const { count, error: countErr } = await supabaseAdmin
-        .from('users_new')
+        .from('users')
         .select('*', { count: 'exact', head: true })
-        .gt('total_shills', currentUser.total_shills)
+        .gt('weekly_shills', currentUser.weekly_shills)
 
       if (countErr) {
         return NextResponse.json({ error: countErr.message }, { status: 400 })
@@ -97,11 +98,15 @@ export async function GET(request: Request) {
     return NextResponse.json({
       top: (topUsers || []).map(user => ({
         username: getWalletDisplayName(user.wallet_address),
-        total_shills: user.total_shills
+        total_shills: user.total_shills,
+        daily_shills: user.daily_shills,
+        weekly_shills: user.weekly_shills
       })),
       currentUser: currentUser ? {
         username: getWalletDisplayName(currentUser.wallet_address),
-        total_shills: currentUser.total_shills
+        total_shills: currentUser.total_shills,
+        daily_shills: currentUser.daily_shills,
+        weekly_shills: currentUser.weekly_shills
       } : null,
       currentRank
     })

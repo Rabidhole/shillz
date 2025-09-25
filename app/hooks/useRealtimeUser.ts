@@ -13,7 +13,7 @@ export function useRealtimeUser(userId: string) {
     async function fetchUser() {
       try {
         const { data, error } = await supabase
-          .from('users_new')
+          .from('users')
           .select('*')
           .eq('id', userId)
           .single()
@@ -40,7 +40,7 @@ export function useRealtimeUser(userId: string) {
         {
           event: '*',
           schema: 'public',
-          table: 'users_new',
+          table: 'users',
           filter: `id=eq.${userId}`
         },
         (payload) => {

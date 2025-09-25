@@ -17,21 +17,27 @@ const supabaseAdmin = createClient(
 
 export async function GET() {
   try {
-    const { data: pricing, error } = await supabaseAdmin
-      .from('ad_pricing')
-      .select('*')
-      .eq('is_active', true)
-      .order('duration_days', { ascending: true })
+    // Return simplified flat rate pricing
+    const pricing = [
+      {
+        id: 'banner-ad',
+        ad_type: 'banner',
+        price_sol: 0.2,
+        price_usd: 0.2 * 200, // Assuming $200 SOL price
+        duration_days: 1,
+        description: 'Top banner ad - 0.2 SOL per day'
+      },
+      {
+        id: 'featured-ad',
+        ad_type: 'featured', 
+        price_sol: 0.1,
+        price_usd: 0.1 * 200, // Assuming $200 SOL price
+        duration_days: 1,
+        description: 'Featured badge - 0.1 SOL per day'
+      }
+    ]
 
-    if (error) {
-      console.error('Error fetching ad pricing:', error)
-      return NextResponse.json(
-        { error: error.message }, 
-        { status: 400 }
-      )
-    }
-
-    return NextResponse.json(pricing || [])
+    return NextResponse.json(pricing)
 
   } catch (error) {
     console.error('Error in ad pricing route:', error)

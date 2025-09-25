@@ -50,23 +50,33 @@ export async function GET(request: Request) {
       )
     }
 
-    // Update each token's total_shills with 24-hour count
+    // Update each token's total_shills with weekly count (for hot tokens)
     for (const token of tokens) {
+      // Get weekly shills for hot tokens ranking
       const { count: hotShills } = await supabaseAdmin
         .from('shills_new')
         .select('*', { count: 'exact', head: true })
         .eq('token_id', token.id)
-        .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+        .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+
+      // Get total shills for the token
+      const { count: totalShills } = await supabaseAdmin
+        .from('shills_new')
+        .select('*', { count: 'exact', head: true })
+        .eq('token_id', token.id)
 
       await supabaseAdmin
         .from('tokens_new')
-        .update({ total_shills: hotShills || 0 })
+        .update({ 
+          total_shills: totalShills || 0,
+          hot_shills: hotShills || 0  // Store weekly shills as hot_shills
+        })
         .eq('id', token.id)
     }
 
     // Update all users with their 24-hour shill counts and tiers
     const { data: users, error: usersError } = await supabaseAdmin
-      .from('users_new')
+      .from('users')
       .select('id')
 
     if (usersError) {
@@ -77,20 +87,36 @@ export async function GET(request: Request) {
       )
     }
 
-    // Update each user's total_shills and tier with 24-hour count
+    // Update each user's daily_shills and weekly_shills
     for (const user of users) {
-      const { count: userShills } = await supabaseAdmin
+      // Get daily shills (last 24 hours)
+      const { count: dailyShills } = await supabaseAdmin
         .from('shills_new')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id)
         .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
 
-      const tier = getTier(userShills || 0)
+      // Get weekly shills (last 7 days)
+      const { count: weeklyShills } = await supabaseAdmin
+        .from('shills_new')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+
+      // Get total shills (all time)
+      const { count: totalShills } = await supabaseAdmin
+        .from('shills_new')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+
+      const tier = getTier(totalShills || 0)
 
       await supabaseAdmin
-        .from('users_new')
+        .from('users')
         .update({ 
-          total_shills: userShills || 0,
+          total_shills: totalShills || 0,
+          daily_shills: dailyShills || 0,
+          weekly_shills: weeklyShills || 0,
           tier
         })
         .eq('id', user.id)

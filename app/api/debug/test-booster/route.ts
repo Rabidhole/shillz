@@ -15,20 +15,22 @@ export async function GET() {
 
     // Step 1: Find or create user
     const { data: userRow, error: userError } = await supabaseAdmin
-      .from('users_new')
+      .from('users')
       .select('*')
-      .eq('telegram_username', testWalletAddress)
+      .eq('wallet_address', testWalletAddress)
       .single()
     let user = userRow
 
     if (userError && userError.code === 'PGRST116') {
       console.log('User not found, creating...')
       const { data: newUser, error: createError } = await supabaseAdmin
-        .from('users_new')
+        .from('users')
         .insert({
-          telegram_username: testWalletAddress,
+          wallet_address: testWalletAddress,
           tier: 'degen',
-          total_shills: 0
+          total_shills: 0,
+          daily_shills: 0,
+          weekly_shills: 0
         })
         .select()
         .single()

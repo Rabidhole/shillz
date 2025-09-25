@@ -345,35 +345,49 @@ export function FeaturedAdBooking() {
                         {day}
                       </div>
                     ))}
-                    {monthData.days.map(date => {
-                      const isSelected = isDateSelected(date)
-                      const isAvailable = selectedSpot ? isDateAvailable(date, selectedSpot) : false
-                      const isToday = date === new Date().toISOString().split('T')[0]
+                    {(() => {
+                      // Get the first day of the month and calculate offset
+                      const firstDate = new Date(monthData.days[0])
+                      const firstDayOfWeek = firstDate.getDay() // 0 = Sunday, 1 = Monday, etc.
                       
-                      // Debug logging for first few dates
-                      if (date <= '2024-01-05') {
-                        console.log(`Date ${date}, Spot ${selectedSpot}, Available: ${isAvailable}`)
+                      // Create array with empty cells for proper alignment
+                      const cells = []
+                      
+                      // Add empty cells for days before the first day of the month
+                      for (let i = 0; i < firstDayOfWeek; i++) {
+                        cells.push(
+                          <div key={`empty-${i}`} className="h-8"></div>
+                        )
                       }
                       
-                      return (
-                        <button
-                          key={date}
-                          onClick={() => handleDateClick(date)}
-                          disabled={!selectedSpot || !isAvailable}
-                          className={cn(
-                            "p-2 rounded-lg text-sm transition-all",
-                            isSelected
-                              ? "bg-purple-600 text-white"
-                              : isAvailable
-                              ? "bg-gray-700 hover:bg-gray-600 text-white"
-                              : "bg-gray-800 text-gray-500 cursor-not-allowed",
-                            isToday && "ring-2 ring-blue-500"
-                          )}
-                        >
-                          {new Date(date).getDate()}
-                        </button>
-                      )
-                    })}
+                      // Add actual date cells
+                      monthData.days.forEach(date => {
+                        const isSelected = isDateSelected(date)
+                        const isAvailable = selectedSpot ? isDateAvailable(date, selectedSpot) : false
+                        const isToday = date === new Date().toISOString().split('T')[0]
+                        
+                        cells.push(
+                          <button
+                            key={date}
+                            onClick={() => handleDateClick(date)}
+                            disabled={!selectedSpot || !isAvailable}
+                            className={cn(
+                              "p-2 rounded-lg text-sm transition-all h-8",
+                              isSelected
+                                ? "bg-purple-600 text-white"
+                                : isAvailable
+                                ? "bg-gray-700 hover:bg-gray-600 text-white"
+                                : "bg-gray-800 text-gray-500 cursor-not-allowed",
+                              isToday && "ring-2 ring-blue-500"
+                            )}
+                          >
+                            {new Date(date).getDate()}
+                          </button>
+                        )
+                      })
+                      
+                      return cells
+                    })()}
                   </div>
                 </div>
               ))

@@ -17,10 +17,10 @@ export async function GET() {
 
     console.log('Booster packs:', { boosterPacks, packsError })
 
-    // Check users_new
+    // Check users
     const { data: users, error: usersError } = await supabaseAdmin
-      .from('users_new')
-      .select('id, telegram_username, created_at')
+      .from('users')
+      .select('id, wallet_address, created_at')
       .order('created_at', { ascending: false })
       .limit(10)
 

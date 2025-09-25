@@ -45,12 +45,11 @@ export async function POST(request: Request) {
       )
     }
 
-    // Check if token already exists
-    const { data: existingToken, error: searchError } = await supabaseAdmin
+    // Check if token already exists (contract address must be unique across all chains)
+    const { data: existingTokens, error: searchError } = await supabaseAdmin
       .from('tokens_new')
-      .select('id')
+      .select('id, name, chain')
       .eq('contract_address', contract_address.toLowerCase())
-      .single()
 
     if (searchError) {
       console.error('Error checking existing token:', searchError)
@@ -60,11 +59,14 @@ export async function POST(request: Request) {
       )
     }
 
-    if (existingToken) {
+    if (existingTokens && existingTokens.length > 0) {
+      const existingToken = existingTokens[0]
       return NextResponse.json(
         { 
-          error: 'Token already exists',
-          tokenId: existingToken.id
+          error: `Token with contract address ${contract_address} already exists as "${existingToken.name}" on ${existingToken.chain}`,
+          tokenId: existingToken.id,
+          existingName: existingToken.name,
+          existingChain: existingToken.chain
         },
         { status: 400 }
       )

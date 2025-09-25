@@ -33,7 +33,7 @@ async function fetchTonBalanceTon(address: string): Promise<number> {
 
 export async function POST() {
   try {
-    // Get the current community pot amount (20% of weekly SOL earnings)
+    // Get the current community pot amount (40% of weekly SOL earnings)
     const { data: potAmount, error: potError } = await supabaseAdmin
       .rpc('get_community_pot_amount')
 
@@ -83,8 +83,8 @@ export async function POST() {
 
     // Build winners from total shills
     const { data: topUsers, error: topErr } = await supabaseAdmin
-      .from('users_new')
-      .select('telegram_username, total_shills')
+      .from('users')
+      .select('wallet_address, total_shills')
       .order('total_shills', { ascending: false })
       .limit(100)
 

@@ -20,9 +20,9 @@ export async function GET(request: Request) {
 
     // Find user
     const { data: user, error: userError } = await supabaseAdmin
-      .from('users_new')
+      .from('users')
       .select('*')
-      .eq('telegram_username', walletAddress)
+      .eq('wallet_address', walletAddress)
       .single()
 
     console.log('User lookup:', { user, userError })

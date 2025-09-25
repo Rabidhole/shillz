@@ -37,7 +37,7 @@ export async function POST(request: Request) {
       
       // Try to find existing user first
       const { data: existingUser, error: findError } = await supabaseAdmin
-        .from('users_new')
+        .from('users')
         .select('*')
         .eq('wallet_address', normalizedWallet)
         .single()
@@ -55,12 +55,13 @@ export async function POST(request: Request) {
       } else {
         // Create new user
         const { data: newUser, error: createError } = await supabaseAdmin
-          .from('users_new')
+          .from('users')
           .insert({
             wallet_address: normalizedWallet,
-            telegram_username: `wallet_${normalizedWallet}`,
             tier: 'degen',
-            total_shills: 0
+            total_shills: 0,
+            daily_shills: 0,
+            weekly_shills: 0
           })
           .select()
           .single()
@@ -75,28 +76,9 @@ export async function POST(request: Request) {
         user = newUser
       }
     } else {
-      // Create anonymous user for anonymous requests
-      const { data: anonUser, error: userError } = await supabaseAdmin
-        .from('users_new')
-        .upsert({
-          telegram_username: `anon_${Date.now()}`,
-          tier: 'degen',
-          total_shills: 0
-        }, {
-          onConflict: 'telegram_username',
-          ignoreDuplicates: false
-        })
-        .select()
-        .single()
-
-      if (userError) {
-        console.error('Error creating/getting user:', userError)
-        return NextResponse.json(
-          { error: userError.message }, 
-          { status: 400 }
-        )
-      }
-      user = anonUser
+      // For anonymous requests, we don't create a user record
+      // Anonymous shills don't count towards user stats
+      user = null
     }
 
     // Calculate effective shills based on multiplier
@@ -155,39 +137,44 @@ export async function POST(request: Request) {
       )
     }
 
-    // Get current user shills
-    const { data: currentUser, error: getUserError } = await supabaseAdmin
-      .from('users_new')
-      .select('total_shills')
-      .eq('id', user.id)
-      .single()
+    // Update user shills only if user exists (not anonymous)
+    if (user) {
+      // Get current user shills
+      const { data: currentUser, error: getUserError } = await supabaseAdmin
+        .from('users')
+        .select('total_shills, daily_shills, weekly_shills')
+        .eq('id', user.id)
+        .single()
 
-    if (getUserError) {
-      console.error('Error getting user:', getUserError)
-      return NextResponse.json(
-        { error: getUserError.message }, 
-        { status: 400 }
-      )
-    }
+      if (getUserError) {
+        console.error('Error getting user:', getUserError)
+        return NextResponse.json(
+          { error: getUserError.message }, 
+          { status: 400 }
+        )
+      }
 
-    // Update user total_shills with the effective shills
-    const newUserTotal = (currentUser?.total_shills || 0) + effectiveShills
-    const { data: updatedUser, error: updateUserError } = await supabaseAdmin
-      .from('users_new')
-      .update({ 
-        total_shills: newUserTotal,
-        tier: getTier(newUserTotal)
-      })
-      .eq('id', user.id)
-      .select()
-      .single()
+      // Update user shills with the effective shills
+      const newUserTotal = (currentUser?.total_shills || 0) + effectiveShills
+      const { data: updatedUser, error: updateUserError } = await supabaseAdmin
+        .from('users')
+        .update({ 
+          total_shills: newUserTotal,
+          daily_shills: (currentUser?.daily_shills || 0) + effectiveShills,
+          weekly_shills: (currentUser?.weekly_shills || 0) + effectiveShills,
+          tier: getTier(newUserTotal)
+        })
+        .eq('id', user.id)
+        .select()
+        .single()
 
-    if (updateUserError) {
-      console.error('Error updating user:', updateUserError)
-      return NextResponse.json(
-        { error: updateUserError.message }, 
-        { status: 400 }
-      )
+      if (updateUserError) {
+        console.error('Error updating user:', updateUserError)
+        return NextResponse.json(
+          { error: updateUserError.message }, 
+          { status: 400 }
+        )
+      }
     }
 
     return NextResponse.json({ 

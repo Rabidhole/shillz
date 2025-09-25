@@ -36,71 +36,93 @@ async function fetchTonBalanceNano(address: string): Promise<bigint> {
 
 export async function GET() {
   try {
-    // Get weekly SOL earnings and calculate community pot (20% of weekly earnings)
-    const { data: weeklyEarnings, error: earningsError } = await supabaseAdmin
-      .rpc('get_weekly_sol_earnings')
+    let weeklyEarnings = 0
+    let potAmount = 0
 
-    if (earningsError) {
-      console.error('Error getting weekly earnings:', earningsError)
-      // If the function doesn't exist, return 0 for now
-      if (earningsError.message?.includes('function') || earningsError.message?.includes('does not exist')) {
-        console.log('Database functions not yet created, using fallback values')
-        const fallbackEarnings = 0
-        const fallbackPot = 0
-        const currentSolPrice = await fetchSolUsdPrice()
-        
-        return NextResponse.json({
-          pot: {
-            usd: fallbackPot,
-            goalUsd: fallbackPot, // Dynamic goal = pot amount
-            progress: 1.0, // Always 100% since pot is exactly 20% of earnings
-          },
-          meta: {
-            solUsdPrice: currentSolPrice,
-            weeklyEarnings: fallbackEarnings,
-            percentage: 20,
-            updatedAt: new Date().toISOString(),
-            recentPayments: []
-          }
-        })
+    // Try to get weekly earnings from database function, fall back to manual calculation
+    try {
+      const { data: weeklyData, error: earningsError } = await supabaseAdmin
+        .rpc('get_weekly_sol_earnings')
+
+      if (earningsError) {
+        console.log('Database function not available, calculating manually:', earningsError.message)
+        throw earningsError
       }
-      return NextResponse.json(
-        { error: 'Failed to calculate weekly earnings' },
-        { status: 500 }
-      )
+      
+      weeklyEarnings = weeklyData || 0
+    } catch (error) {
+      console.log('Falling back to manual weekly earnings calculation')
+      
+      // Manual calculation: try sol_payments first, then fallback to individual tables
+      const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+      
+      // Try sol_payments table
+      const { data: payments, error: paymentsError } = await supabaseAdmin
+        .from('sol_payments')
+        .select('amount_sol')
+        .gte('created_at', oneWeekAgo)
+
+      if (paymentsError) {
+        console.log('sol_payments table not available, calculating from individual tables')
+        
+        // Calculate from featured_ads
+        const { data: featuredAds } = await supabaseAdmin
+          .from('featured_ads')
+          .select('total_paid_sol, created_at')
+          .gte('created_at', oneWeekAgo)
+        
+        // Calculate from user_boosters + booster_packs
+        const { data: userBoosters } = await supabaseAdmin
+          .from('user_boosters')
+          .select('purchased_at, booster_pack_id')
+          .gte('purchased_at', oneWeekAgo)
+        
+        const { data: boosterPacks } = await supabaseAdmin
+          .from('booster_packs')
+          .select('id, price_sol')
+        
+        const featuredEarnings = featuredAds?.reduce((sum, ad) => sum + (parseFloat(ad.total_paid_sol) || 0), 0) || 0
+        const boosterEarnings = userBoosters?.reduce((sum, ub) => {
+          const pack = boosterPacks?.find(bp => bp.id === ub.booster_pack_id)
+          return sum + (parseFloat(pack?.price_sol) || 0)
+        }, 0) || 0
+        
+        weeklyEarnings = featuredEarnings + boosterEarnings
+        
+        console.log('Manual calculation from tables:', {
+          featuredEarnings,
+          boosterEarnings,
+          totalEarnings: weeklyEarnings
+        })
+      } else {
+        weeklyEarnings = payments?.reduce((sum, payment) => {
+          return sum + (parseFloat(payment.amount_sol) || 0)
+        }, 0) || 0
+        
+        console.log('Earnings from sol_payments table:', weeklyEarnings)
+      }
     }
 
-    const { data: potAmount, error: potError } = await supabaseAdmin
-      .rpc('get_community_pot_amount')
+    // Calculate pot amount (40% of weekly earnings)
+    potAmount = weeklyEarnings * 0.4
 
-    if (potError) {
-      console.error('Error getting community pot amount:', potError)
-      // If the function doesn't exist, return 0 for now
-      if (potError.message?.includes('function') || potError.message?.includes('does not exist')) {
-        console.log('Database functions not yet created, using fallback values')
-        const fallbackEarnings = weeklyEarnings || 0
-        const fallbackPot = 0
-        const currentSolPrice = await fetchSolUsdPrice()
-        
-        return NextResponse.json({
-          pot: {
-            usd: fallbackPot,
-            goalUsd: fallbackPot, // Dynamic goal = pot amount
-            progress: 1.0, // Always 100% since pot is exactly 20% of earnings
-          },
-          meta: {
-            solUsdPrice: currentSolPrice,
-            weeklyEarnings: fallbackEarnings,
-            percentage: 20,
-            updatedAt: new Date().toISOString(),
-            recentPayments: []
-          }
-        })
+    console.log('Pot calculation:', {
+      weeklyEarnings,
+      potAmount,
+      percentage: 40
+    })
+
+    // Try to get pot amount from database function, but we already calculated it manually
+    try {
+      const { data: dbPotAmount, error: potError } = await supabaseAdmin
+        .rpc('get_community_pot_amount')
+      
+      if (!potError && dbPotAmount !== null) {
+        potAmount = dbPotAmount
+        console.log('Using database pot amount:', potAmount)
       }
-      return NextResponse.json(
-        { error: 'Failed to calculate community pot' },
-        { status: 500 }
-      )
+    } catch (error) {
+      console.log('Database pot function not available, using manual calculation')
     }
 
     // Get recent SOL payments for additional context
@@ -118,21 +140,29 @@ export async function GET() {
     // Get current SOL price from live API
     const currentSolPrice = await fetchSolUsdPrice()
     
-    // Dynamic goal: 20% of weekly earnings (the pot amount itself)
-    const goalUsd = potAmount || 0
-    const progress = 1.0 // Always 100% since pot is exactly 20% of earnings
+    // Calculate USD values
+    const potAmountUsd = potAmount * currentSolPrice
+    const goalUsd = potAmountUsd // Dynamic goal = pot amount
+    const progress = 1.0 // Always 100% since pot is exactly 40% of earnings
+
+    console.log('Final pot calculation:', {
+      potAmountSol: potAmount,
+      potAmountUsd,
+      currentSolPrice,
+      weeklyEarnings
+    })
 
     // Return in the same format as before for backward compatibility
     return NextResponse.json({
       pot: {
-        usd: potAmount || 0,
+        usd: potAmountUsd,
         goalUsd,
         progress,
       },
       meta: {
         solUsdPrice: currentSolPrice,
         weeklyEarnings: weeklyEarnings || 0,
-        percentage: 20, // 20% of weekly earnings
+        percentage: 40, // 40% of weekly earnings
         updatedAt: new Date().toISOString(),
         recentPayments: recentPayments || []
       }

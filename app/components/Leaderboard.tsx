@@ -7,6 +7,7 @@ import { useSupabase } from '../hooks/useSupabase'
 import { Button } from '@/components/ui/button'
 import { cn } from '../../lib/utils'
 import { type Token } from '../types/database'
+import { FeaturedAds } from './FeaturedAds'
 
 interface LeaderboardProps {
   search: string
@@ -146,9 +147,9 @@ export function Leaderboard({ search }: LeaderboardProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h2 className="text-2xl font-bold text-white">
-            🔥 Hot Tokens (24h)
-          </h2>
+              <h2 className="text-2xl font-bold text-white">
+                🔥 Hot Tokens (7d)
+              </h2>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
             <span className="text-xs text-green-400 font-medium">LIVE</span>
@@ -163,6 +164,9 @@ export function Leaderboard({ search }: LeaderboardProps) {
           {isLoading ? 'Refreshing...' : 'Refresh'}
         </Button>
       </div>
+
+      {/* Featured Ads */}
+      <FeaturedAds />
 
       {/* Chain Filter */}
       <div className="flex items-center gap-2">

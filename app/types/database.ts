@@ -3,6 +3,18 @@ export type TimeWindow = 'hour' | 'day';
 
 export interface User {
     id: string;
+    wallet_address: string;
+    tier: UserTier;
+    total_shills: number;
+    daily_shills: number;
+    weekly_shills: number;
+    created_at: string;
+    updated_at: string;
+}
+
+// Legacy interface for backward compatibility
+export interface UserLegacy {
+    id: string;
     telegram_username: string;
     wallet_address: string;
     tier: UserTier;
@@ -94,10 +106,10 @@ export interface UserBooster {
 export interface Database {
     public: {
         Tables: {
-            users_new: {
+            users: {
                 Row: User;
-                Insert: Omit<User, 'id' | 'created_at' | 'total_shills' | 'tier'>;
-                Update: Partial<Omit<User, 'id' | 'created_at'>>;
+                Insert: Omit<User, 'id' | 'created_at' | 'updated_at' | 'total_shills' | 'daily_shills' | 'weekly_shills' | 'tier'>;
+                Update: Partial<Omit<User, 'id' | 'created_at' | 'updated_at'>>;
             };
             tokens_new: {
                 Row: Token;

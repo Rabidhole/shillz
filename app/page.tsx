@@ -1,19 +1,19 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { SearchBar } from './components/SearchBar'
 import { Leaderboard } from './components/Leaderboard'
-import { GlobalBoosterStatus } from './components/GlobalBoosterStatus'
 import { AdBanner } from './components/AdBanner'
 import { TokenSubmitPanel } from './components/TokenSubmitPanel'
-import { ActiveBoosterDisplay } from './components/ActiveBoosterDisplay'
 import { useReownWallet } from './hooks/useReownWallet'
-import { PotProgress } from './components/PotProgress'
+import { PotDistribution } from './components/PotDistribution'
+import { WeeklyCountdown } from './components/WeeklyCountdown'
 import { useTelegramUser } from './hooks/useTelegram'
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showExplainer, setShowExplainer] = useState(false)
+  const [potData, setPotData] = useState<{ usd: number; meta: { solUsdPrice: number } } | null>(null)
   const { address } = useReownWallet()
   const { username: tgUsername } = useTelegramUser()
   const normalizeWalletAddress = (input?: string) => {
@@ -23,6 +23,26 @@ export default function Home() {
     return raw.startsWith('@') ? raw.substring(1) : raw
   }
 
+  // Fetch pot data
+  useEffect(() => {
+    const fetchPotData = async () => {
+      try {
+        const response = await fetch('/api/pot')
+        const data = await response.json()
+        if (data.pot) {
+          setPotData(data.pot)
+        }
+      } catch (error) {
+        console.error('Error fetching pot data:', error)
+      }
+    }
+
+    fetchPotData()
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchPotData, 30000)
+    return () => clearInterval(interval)
+  }, [])
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-gray-900 to-black">
       <div className="container mx-auto px-4 py-6">
@@ -31,19 +51,6 @@ export default function Home() {
         
       {/* Compact Header */}
       <div className="text-center mb-6">
-        <GlobalBoosterStatus />
-        <p className="text-sm text-gray-400 mb-4">
-          Hottest tokens based on 24h community activity
-        </p>
-
-        {/* User's Active Booster */}
-        {(tgUsername || address) && (
-          <ActiveBoosterDisplay 
-            userId={normalizeWalletAddress(tgUsername || address || undefined)} 
-            className="max-w-md mx-auto mb-4"
-          />
-        )}
-          
           {/* Search Bar */}
           <div className="max-w-xl mx-auto">
             <SearchBar 
@@ -74,9 +81,17 @@ export default function Home() {
           </button>
         </div>
 
-        {/* Community Pot Progress */}
+        {/* Prize Distribution */}
         <div className="max-w-2xl mx-auto mb-6">
-          <PotProgress />
+          <PotDistribution 
+            potAmountUsd={potData?.usd || 0} 
+            solUsdPrice={potData?.meta?.solUsdPrice || 200}
+          />
+        </div>
+
+        {/* Weekly Countdown */}
+        <div className="max-w-2xl mx-auto mb-6">
+          <WeeklyCountdown />
         </div>
 
         {/* Leaderboard */}
@@ -102,7 +117,7 @@ export default function Home() {
                 Shillzzz is a shill‑to‑earn platform. Add and open the token you want to shill, then solve fun puzzles to shill the token you support.
               </p>
               <p>
-                Tokens with the most shills on a 24‑hour basis rise on the leaderboard.
+                Tokens with the most shills on a weekly basis rise on the leaderboard.
               </p>
               <p>
                 The community pot fills up from advertisement money and booster buys. When the pot reaches $5,000, rewards are distributed to the top 20 shillerz.

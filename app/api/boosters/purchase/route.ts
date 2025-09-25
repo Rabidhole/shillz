@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { Database } from '@/app/types/database'
 import { BoosterPurchaseRequest } from '@/app/types/boosters'
 import { fetchSolUsdPrice } from '@/lib/sol-pricing'
+import { TelegramNotifications } from '@/app/lib/telegram-notifications'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,7 +38,7 @@ async function getOrCreateUserByWallet(walletAddress: string) {
   const normalizedWallet = normalizeWalletAddress(walletAddress)
   
   const { data: existingUser, error: findError } = await supabaseAdmin
-    .from('users_new')
+    .from('users')
     .select('id')
     .eq('wallet_address', normalizedWallet)
     .single()
@@ -53,10 +54,13 @@ async function getOrCreateUserByWallet(walletAddress: string) {
 
   // Create new user with wallet address
   const { data: newUser, error: createError } = await supabaseAdmin
-    .from('users_new')
+    .from('users')
     .insert({
       wallet_address: normalizedWallet,
-      telegram_username: `wallet_${normalizedWallet}` // Use wallet address as unique telegram username
+      tier: 'degen',
+      total_shills: 0,
+      daily_shills: 0,
+      weekly_shills: 0
     })
     .select('id')
     .single()
@@ -308,12 +312,13 @@ export async function POST(request: Request) {
           .from('sol_payments')
           .insert({
             transaction_hash: transactionId,
-            user_id: actualUserId,
-            booster_pack_id: boosterPack.id,
             amount_sol: boosterPack.priceSol,
             amount_usd: amountUsd,
             sol_usd_price: solUsdPrice,
-            recipient_address: process.env.NEXT_PUBLIC_SOL_RECIPIENT_ADDRESS || process.env.NEXT_PUBLIC_TEST_SOL_RECIPIENT_ADDRESS || ''
+            recipient_address: process.env.NEXT_PUBLIC_SOL_RECIPIENT_ADDRESS || process.env.NEXT_PUBLIC_TEST_SOL_RECIPIENT_ADDRESS || '',
+            sender_address: normalizedWallet,
+            payment_type: 'booster',
+            reference_id: actualUserId
           })
         
         console.log('SOL payment tracked for community pot:', {
@@ -325,6 +330,19 @@ export async function POST(request: Request) {
         console.error('Failed to track SOL payment:', trackingError)
         // Don't fail the purchase if tracking fails
       }
+    }
+
+    // Send Telegram notification
+    try {
+      await TelegramNotifications.notifyBoosterPurchase({
+        user: normalizedWallet,
+        boosterType: boosterPack.id,
+        amount: boosterPack.priceSol || 0,
+        transactionHash: transactionId
+      })
+    } catch (notificationError) {
+      console.error('Failed to send Telegram notification:', notificationError)
+      // Don't fail the purchase if notification fails
     }
 
     return new NextResponse(

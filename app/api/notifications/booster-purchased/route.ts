@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
     // Get user details
     const supabase = await createServerSupabaseClient()
     const { data: user, error: userError } = await supabase
-      .from('users_new')
+      .from('users')
       .select('wallet_address')
       .eq('id', userId)
       .single()

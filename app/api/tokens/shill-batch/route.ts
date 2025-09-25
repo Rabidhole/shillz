@@ -28,31 +28,13 @@ export async function POST(request: Request) {
       )
     }
 
-    // Create anonymous user for this batch
-    const { data: user, error: userError } = await supabaseAdmin
-      .from('users_new')
-      .upsert({
-        telegram_username: `anon_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        tier: 'degen',
-        total_shills: 0
-      }, {
-        onConflict: 'telegram_username',
-        ignoreDuplicates: false
-      })
-      .select()
-      .single()
-
-    if (userError) {
-      console.error('Error creating user:', userError)
-      return NextResponse.json(
-        { error: userError.message }, 
-        { status: 400 }
-      )
-    }
+    // For batch shills, we don't create a user record
+    // Anonymous shills don't count towards user stats
+    const user = null
 
     // Create multiple shill records
     const shillInserts = Array(count).fill(null).map(() => ({
-      user_id: user.id,
+      user_id: null, // Anonymous shills
       token_id: tokenId,
     }))
 
@@ -104,7 +86,7 @@ export async function POST(request: Request) {
     // Update user with 24-hour count and current tier
     const newTier = getTier(user24hShills || 0)
     const { data: updatedUser, error: updateUserError } = await supabaseAdmin
-      .from('users_new')
+      .from('users')
       .update({ 
         total_shills: user24hShills || 0,
         tier: newTier

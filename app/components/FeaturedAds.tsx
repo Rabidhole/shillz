@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { FeaturedAdModal } from './FeaturedAdModal'
 
 interface FeaturedAd {
   id: string
@@ -16,7 +15,6 @@ interface FeaturedAd {
 export function FeaturedAds() {
   const [ads, setAds] = useState<FeaturedAd[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [showModal, setShowModal] = useState<{ spotNumber: number } | null>(null)
 
   useEffect(() => {
     async function fetchFeaturedAds() {
@@ -93,24 +91,17 @@ export function FeaturedAds() {
               <div className="text-xs text-gray-500 mb-2">
                 Spot {spotNumber} Available
               </div>
-              <button
-                onClick={() => setShowModal({ spotNumber })}
+              <Link
+                href="/advertise"
                 className="text-xs text-blue-400 hover:text-blue-300 underline"
               >
                 Advertise here (0.1 SOL/day)
-              </button>
+              </Link>
             </div>
           )}
         </div>
       ))}
       
-      {showModal && (
-        <FeaturedAdModal
-          isOpen={true}
-          onClose={() => setShowModal(null)}
-          spotNumber={showModal.spotNumber}
-        />
-      )}
     </div>
   )
 }

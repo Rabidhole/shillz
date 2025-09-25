@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { Database } from '@/app/types/database'
 import { fetchSolUsdPrice } from '@/lib/sol-pricing'
+import { TelegramNotifications } from '../../lib/telegram-notifications'
 
 export const dynamic = 'force-dynamic'
 
@@ -65,10 +66,11 @@ export async function POST(request: Request) {
       )
     }
 
-    // Calculate SOL price and USD equivalent
+    // Calculate SOL price and USD equivalent using flat rate
     const solUsdPrice = await fetchSolUsdPrice()
-    const totalPriceSol = totalPrice / 100 / solUsdPrice // Convert USD to SOL
-    const totalPriceUsd = totalPrice / 100
+    const days = selectedDates.length
+    const totalPriceSol = 0.2 * days // 0.2 SOL per day
+    const totalPriceUsd = totalPriceSol * solUsdPrice
 
     // Create ad slot
     const { data: adSlot, error: createError } = await supabaseAdmin
@@ -80,9 +82,12 @@ export async function POST(request: Request) {
         telegram_handle: telegramHandle.trim(),
         start_date: startDate,
         end_date: endDate,
-        price_ton: totalPriceSol, // Store SOL amount
+        price_ton: totalPriceSol, // Legacy field - Store SOL amount
         payment_id: transactionHash || paymentId,
-        ton_amount: totalPriceSol,
+        ton_amount: totalPriceSol, // Legacy field
+        price_sol: totalPriceSol, // New SOL price field
+        total_paid_sol: totalPriceSol, // New total paid field
+        sol_transaction_hash: transactionHash,
         is_active: true,
         is_approved: false // Requires admin approval
       })
@@ -104,12 +109,13 @@ export async function POST(request: Request) {
           .from('sol_payments')
           .insert({
             transaction_hash: transactionHash,
-            user_id: walletAddress, // Use wallet as user ID for banner ads
-            booster_pack_id: 'banner-ad', // Special ID for banner ads
             amount_sol: totalPriceSol,
             amount_usd: totalPriceUsd,
             sol_usd_price: solUsdPrice,
-            recipient_address: process.env.NEXT_PUBLIC_TEST_SOL_RECIPIENT_ADDRESS || ''
+            recipient_address: process.env.NEXT_PUBLIC_TEST_SOL_RECIPIENT_ADDRESS || '',
+            sender_address: walletAddress,
+            payment_type: 'banner_ad',
+            reference_id: adSlot.id
           })
         
         console.log('Banner ad SOL payment tracked for community pot:', {
@@ -121,6 +127,20 @@ export async function POST(request: Request) {
         console.error('Failed to track banner ad payment:', trackingError)
         // Don't fail the ad creation if tracking fails
       }
+    }
+
+    // Send Telegram notification
+    try {
+      await TelegramNotifications.notifyAdBooking({
+        project: title,
+        adType: 'banner',
+        dates: `${startDate} - ${endDate}`,
+        amount: totalPriceSol,
+        transactionHash: transactionHash || 'test-payment'
+      })
+    } catch (notificationError) {
+      console.error('Failed to send Telegram notification:', notificationError)
+      // Don't fail the ad creation if notification fails
     }
 
     return NextResponse.json({

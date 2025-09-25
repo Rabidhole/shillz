@@ -57,22 +57,27 @@ export function PotProgress() {
     )
   }
 
+  const potAmountSol = data.pot.usd / data.meta.solUsdPrice
+
   return (
     <div className="p-4 rounded-lg bg-gray-900/40 border border-gray-700/30">
       <div className="flex items-center justify-between mb-3">
         <div className="text-white font-semibold">Community Pot</div>
-        <div className="text-sm text-gray-400">20% of weekly earnings</div>
+        <div className="text-sm text-gray-400">40% of weekly earnings</div>
       </div>
       <div className="text-center">
         <div className="text-3xl font-bold text-blue-300 mb-1">
-          ${data.pot.usd.toFixed(2)}
+          {potAmountSol.toFixed(4)} SOL
         </div>
         <div className="text-sm text-gray-400">
+          (${data.pot.usd.toFixed(2)} USD)
+        </div>
+        <div className="text-sm text-gray-400 mt-1">
           Ready for distribution to top shillers
         </div>
       </div>
       <div className="mt-2 text-xs text-gray-500">
-        Weekly earnings: ${data.meta.weeklyEarnings.toFixed(2)} • SOL ${data.meta.solUsdPrice.toFixed(2)} (live) • Updated {new Date(data.meta.updatedAt).toLocaleTimeString()}
+        Weekly earnings: {(data.meta.weeklyEarnings / data.meta.solUsdPrice).toFixed(4)} SOL • SOL ${data.meta.solUsdPrice.toFixed(2)} (live) • Updated {new Date(data.meta.updatedAt).toLocaleTimeString()}
       </div>
       {data.meta.recentPayments.length > 0 && (
         <div className="mt-2 text-xs text-gray-400">

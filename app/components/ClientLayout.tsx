@@ -77,6 +77,14 @@ export function ClientLayout({ children }: ClientLayoutProps) {
               >
                 🏆 Leaderboard
               </Button>
+              <a
+                href="/Shillzzz.pdf"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors"
+              >
+                📄 Whitepaper
+              </a>
               <WalletConnect />
               {isAdmin && (
                 <Link 
@@ -123,6 +131,15 @@ export function ClientLayout({ children }: ClientLayoutProps) {
               >
                 🏆 Leaderboard
               </button>
+              <a
+                href="/Shillzzz.pdf"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                📄 Whitepaper
+              </a>
               <div className="pt-2">
                 <WalletConnect />
               </div>

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { fetchSolUsdPrice } from '@/lib/sol-pricing'
+import { TelegramNotifications } from '../../lib/telegram-notifications'
 
 export const dynamic = 'force-dynamic'
 
@@ -136,12 +137,13 @@ export async function POST(request: Request) {
         .from('sol_payments')
         .insert({
           transaction_hash: transactionHash,
-          user_id: walletAddress, // Use wallet as user ID for featured ads
-          booster_pack_id: 'featured-ad', // Special ID for featured ads
           amount_sol: totalPriceSol,
           amount_usd: totalPriceUsd,
           sol_usd_price: solUsdPrice,
-            recipient_address: process.env.NEXT_PUBLIC_TEST_SOL_RECIPIENT_ADDRESS || ''
+          recipient_address: process.env.NEXT_PUBLIC_TEST_SOL_RECIPIENT_ADDRESS || '',
+          sender_address: walletAddress,
+          payment_type: 'featured_ad',
+          reference_id: featuredAd.id
         })
       
       console.log('Featured ad SOL payment tracked for community pot:', {
@@ -152,6 +154,20 @@ export async function POST(request: Request) {
     } catch (trackingError) {
       console.error('Failed to track featured ad payment:', trackingError)
       // Don't fail the ad creation if tracking fails
+    }
+
+    // Send Telegram notification
+    try {
+      await TelegramNotifications.notifyAdBooking({
+        project: projectName,
+        adType: 'featured',
+        dates: `${startDate} - ${endDate}`,
+        amount: totalPriceSol,
+        transactionHash: transactionHash
+      })
+    } catch (notificationError) {
+      console.error('Failed to send Telegram notification:', notificationError)
+      // Don't fail the ad creation if notification fails
     }
 
     return NextResponse.json({

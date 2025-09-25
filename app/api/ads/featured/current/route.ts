@@ -16,6 +16,9 @@ const supabaseAdmin = createClient(
 
 export async function GET() {
   try {
+    console.log('Fetching current featured ads...')
+    console.log('Current date:', new Date().toISOString().split('T')[0])
+    
     // Get current active featured ads
     const { data: ads, error } = await supabaseAdmin
       .rpc('get_current_featured_ads')
@@ -23,6 +26,11 @@ export async function GET() {
     if (error) {
       console.error('Error fetching current featured ads:', error)
       return NextResponse.json([])
+    }
+
+    console.log('Current featured ads found:', ads?.length || 0)
+    if (ads && ads.length > 0) {
+      console.log('Featured ads data:', ads)
     }
 
     return NextResponse.json(ads || [])
