@@ -76,9 +76,10 @@ async function getOrCreateUserByWallet(walletAddress: string) {
 
 export async function POST(request: Request) {
   try {
-    console.log('=== BOOSTER PURCHASE DEBUG START ===')
+    console.log('🚀 BOOSTER PURCHASE API CALLED')
+    console.log('🔔 API CALLED - CHECK SERVER LOGS')
     const requestData = await request.json() as BoosterPurchaseRequest
-    console.log('Request data:', JSON.stringify(requestData, null, 2))
+    console.log('📦 Request data:', JSON.stringify(requestData, null, 2))
     const { id: boosterId, walletAddress, testMode, paymentMethod, transactionHash } = requestData
     const normalizedWallet = normalizeWalletAddress(walletAddress)
     console.log('Parsed values:', { boosterId, walletAddress, normalizedWallet, testMode, paymentMethod, transactionHash })
@@ -333,6 +334,14 @@ export async function POST(request: Request) {
     }
 
     // Send Telegram notification
+    console.log('🚀 BOOSTER PURCHASE COMPLETE - About to send notification...')
+    console.log('🔔 NOTIFICATION DEBUG - Calling TelegramNotifications.notifyBoosterPurchase')
+    console.log('🔔 NOTIFICATION DATA:', {
+      user: normalizedWallet,
+      boosterType: boosterPack.id,
+      amount: boosterPack.priceSol || 0,
+      transactionHash: transactionId
+    })
     try {
       await TelegramNotifications.notifyBoosterPurchase({
         user: normalizedWallet,
@@ -340,8 +349,9 @@ export async function POST(request: Request) {
         amount: boosterPack.priceSol || 0,
         transactionHash: transactionId
       })
+      console.log('✅ Notification call completed')
     } catch (notificationError) {
-      console.error('Failed to send Telegram notification:', notificationError)
+      console.error('❌ Failed to send Telegram notification:', notificationError)
       // Don't fail the purchase if notification fails
     }
 

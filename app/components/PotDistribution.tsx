@@ -1,18 +1,29 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 interface PotDistributionProps {
+  potAmountSol: number
   potAmountUsd: number
   solUsdPrice?: number
   className?: string
 }
 
-export function PotDistribution({ potAmountUsd, solUsdPrice = 200, className = '' }: PotDistributionProps) {
+interface LeaderboardUser {
+  username: string
+  weekly_shills: number
+  daily_shills: number
+  total_shills: number
+  projected_prize_sol?: number
+  prize_percentage?: number
+}
+
+export function PotDistribution({ potAmountSol, potAmountUsd, solUsdPrice = 200, className = '' }: PotDistributionProps) {
   const [showDistribution, setShowDistribution] = useState(false)
+  const [leaders, setLeaders] = useState<LeaderboardUser[]>([])
+  const [isLoading, setIsLoading] = useState(false)
   
-  // Calculate SOL amount
-  const potAmountSol = potAmountUsd / solUsdPrice
+  // Use SOL amount directly (no calculation needed)
 
   // Intriguing distribution schedule for top 10 (exactly 100%)
   const distributionSchedule = [
@@ -27,6 +38,30 @@ export function PotDistribution({ potAmountUsd, solUsdPrice = 200, className = '
     { rank: 9, percentage: 2, label: '💫 Comet' },
     { rank: 10, percentage: 2, label: '✨ Spark' },
   ]
+
+  // Fetch current leaders when distribution is shown
+  useEffect(() => {
+    if (showDistribution) {
+      fetchLeaders()
+    }
+  }, [showDistribution])
+
+  const fetchLeaders = async () => {
+    setIsLoading(true)
+    try {
+      // Always use live leaderboard data, never snapshot data
+      const response = await fetch('/api/users/leaderboard')
+      const data = await response.json()
+      console.log('Using live leaderboard data:', data)
+      if (data.top) {
+        setLeaders(data.top.slice(0, 10)) // Get top 10
+      }
+    } catch (error) {
+      console.error('Error fetching leaders:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const totalPercentage = distributionSchedule.reduce((sum, item) => sum + item.percentage, 0)
 
@@ -60,31 +95,72 @@ export function PotDistribution({ potAmountUsd, solUsdPrice = 200, className = '
             Top 10 Shillers Share Everything
           </div>
           
-          <div className="space-y-1">
-            {distributionSchedule.map((item) => {
-              const amountSol = (potAmountSol * item.percentage) / 100
-              return (
-                <div key={item.rank} className="flex items-center justify-between py-1">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm font-medium text-gray-300 w-6">
-                      #{item.rank}
-                    </span>
-                    <span className="text-sm text-gray-400">
-                      {item.label}
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-bold text-green-400">
-                      {amountSol.toFixed(4)} SOL
+          {isLoading ? (
+            <div className="text-center py-4">
+              <div className="text-gray-400">Loading current leaders...</div>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {distributionSchedule.map((item) => {
+                const leader = leaders[item.rank - 1] // Get leader for this rank
+                const walletDisplay = leader ? 
+                  leader.username :
+                  'No shiller yet'
+                const shillsDisplay = leader ? `${leader.weekly_shills} shills` : '0 shills'
+                
+                // Use actual SOL amount from snapshot if available, otherwise calculate
+                const amountSol = leader?.projected_prize_sol || (potAmountSol * item.percentage) / 100
+                const actualPercentage = leader?.prize_percentage || item.percentage
+                
+                // Color coding based on rank
+                const getRankColor = (rank: number) => {
+                  switch (rank) {
+                    case 1: return 'text-yellow-400' // Gold
+                    case 2: return 'text-gray-300' // Silver
+                    case 3: return 'text-amber-600' // Bronze
+                    case 4: case 5: return 'text-blue-400' // Blue for 4th-5th
+                    case 6: case 7: return 'text-green-400' // Green for 6th-7th
+                    case 8: case 9: case 10: return 'text-purple-400' // Purple for 8th-10th
+                    default: return 'text-gray-500'
+                  }
+                }
+                
+                return (
+                  <div key={item.rank} className="flex items-center justify-between py-2 px-3 bg-gray-900/30 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <span className="text-sm font-medium text-gray-300 w-6">
+                        #{item.rank}
+                      </span>
+                      <div className="flex flex-col">
+                        <span className="text-sm text-gray-400">
+                          {item.label}
+                        </span>
+                        <span className={`text-xs font-mono font-semibold ${getRankColor(item.rank)}`}>
+                          {walletDisplay}
+                        </span>
+                        <span className="text-xs text-blue-400">
+                          {shillsDisplay}
+                        </span>
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-500">
-                      {item.percentage}%
+                    <div className="text-right">
+                      <div className="text-sm font-bold text-green-400">
+                        {amountSol.toFixed(4)} SOL
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {actualPercentage}%
+                      </div>
+                      {leader?.projected_prize_sol && (
+                        <div className="text-xs text-blue-400">
+                          Snapshot Amount
+                        </div>
+                      )}
                     </div>
                   </div>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
+          )}
 
           <div className="mt-4 p-3 bg-gray-900/50 rounded-lg">
             <div className="text-xs text-gray-400 text-center">

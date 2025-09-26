@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { getCurrentWeekPeriod } from '@/lib/weekly-period'
 import { Database } from '@/app/types/database'
 
 export const dynamic = 'force-dynamic'
@@ -51,13 +52,16 @@ export async function GET(request: Request) {
     }
 
     // Update each token's total_shills with weekly count (for hot tokens)
+    const { start: weekStart, end: weekEnd } = getCurrentWeekPeriod()
+    
     for (const token of tokens) {
-      // Get weekly shills for hot tokens ranking
+      // Get weekly shills for hot tokens ranking (using fixed weekly period)
       const { count: hotShills } = await supabaseAdmin
         .from('shills_new')
         .select('*', { count: 'exact', head: true })
         .eq('token_id', token.id)
-        .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+        .gte('created_at', weekStart.toISOString())
+        .lte('created_at', weekEnd.toISOString())
 
       // Get total shills for the token
       const { count: totalShills } = await supabaseAdmin
@@ -96,12 +100,13 @@ export async function GET(request: Request) {
         .eq('user_id', user.id)
         .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
 
-      // Get weekly shills (last 7 days)
+      // Get weekly shills (using fixed weekly period)
       const { count: weeklyShills } = await supabaseAdmin
         .from('shills_new')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id)
-        .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+        .gte('created_at', weekStart.toISOString())
+        .lte('created_at', weekEnd.toISOString())
 
       // Get total shills (all time)
       const { count: totalShills } = await supabaseAdmin

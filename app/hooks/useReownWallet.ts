@@ -29,7 +29,6 @@ export function useReownWallet() {
       const saved = localStorage.getItem('wallet-connection')
       if (saved) {
         const parsed = JSON.parse(saved)
-        console.log('Restoring wallet state from localStorage:', parsed)
         setWalletState(parsed)
       }
     } catch (err) {
@@ -37,10 +36,6 @@ export function useReownWallet() {
     }
   }, [])
 
-  // Debug wallet state changes
-  useEffect(() => {
-    console.log('Wallet state changed:', walletState)
-  }, [walletState])
 
   useEffect(() => {
     if (!appKit || !isHydrated) {
@@ -62,7 +57,6 @@ export function useReownWallet() {
               chainId: null,
               balance: null
             })
-            console.log('Initial wallet state restored:', account)
           }
         } catch (err) {
           console.log('No initial wallet connection found')
@@ -82,7 +76,6 @@ export function useReownWallet() {
         }
         setWalletState(newState)
         setError(null) // Clear any previous errors
-        console.log('Wallet state updated:', account)
         
         // Persist to localStorage
         if (typeof window !== 'undefined') {

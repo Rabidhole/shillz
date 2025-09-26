@@ -102,6 +102,22 @@ export default function DebugTestnetPage() {
               >
                 Debug Community Pot
               </Button>
+              
+              <Button 
+                onClick={() => runTest('/api/test/wallet-monitor')}
+                disabled={isLoading}
+                className="w-full bg-cyan-600 hover:bg-cyan-700"
+              >
+                Test Wallet Monitoring
+              </Button>
+              
+              <Button 
+                onClick={() => runTest('/api/debug/pot-calculation')}
+                disabled={isLoading}
+                className="w-full bg-red-600 hover:bg-red-700"
+              >
+                Debug Pot Calculation
+              </Button>
             </div>
           </div>
 
@@ -169,8 +185,9 @@ export default function DebugTestnetPage() {
             <p><strong>1. Check Testnet Status:</strong> See current boosters, ads, and payments</p>
             <p><strong>2. Debug Community Pot:</strong> Check why pot shows $0 and see calculations</p>
             <p><strong>3. Test Weekly Snapshot:</strong> Simulate the Sunday midnight snapshot process</p>
-            <p><strong>4. Check Current Ads:</strong> See what ads should be displaying</p>
-            <p><strong>5. Weekly Countdown:</strong> Fixed - now shows correct days until Sunday</p>
+            <p><strong>4. Test Wallet Monitoring:</strong> Check for recent SOL transactions and send notifications</p>
+            <p><strong>5. Check Current Ads:</strong> See what ads should be displaying</p>
+            <p><strong>6. Weekly Countdown:</strong> Fixed - now shows correct days until Sunday</p>
             <p><strong>Note:</strong> Admin approval system left unchanged as requested</p>
           </div>
         </div>

@@ -1,18 +1,19 @@
 import { useEffect, useState } from 'react'
 import { useSupabase } from './useSupabase'
 import { type Token } from '../types/database'
+import { getCurrentWeekPeriod } from '@/lib/weekly-period'
 
-interface TokenWith24hShills extends Token {
+interface TokenWith7dShills extends Token {
   hot_shills: number
 }
 
 export function useRealtimeToken(tokenId: string) {
   const supabase = useSupabase()
-  const [token, setToken] = useState<TokenWith24hShills | null>(null)
+  const [token, setToken] = useState<TokenWith7dShills | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Fetch initial token data with 24-hour shill count
+  // Fetch initial token data with 7-day shill count
   useEffect(() => {
     async function fetchToken() {
       try {
@@ -25,19 +26,21 @@ export function useRealtimeToken(tokenId: string) {
 
         if (tokenError) throw tokenError
 
-        // Get 24-hour shill count
+        // Get weekly shill count (using fixed weekly period)
+        const { start: weekStart, end: weekEnd } = getCurrentWeekPeriod()
         const { count: hotShills, error: shillError } = await supabase
           .from('shills_new')
           .select('*', { count: 'exact', head: true })
           .eq('token_id', tokenId)
-          .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+          .gte('created_at', weekStart.toISOString())
+          .lte('created_at', weekEnd.toISOString())
 
         if (shillError) throw shillError
 
         setToken({
           ...tokenData,
           hot_shills: hotShills || 0,
-          total_shills: hotShills || 0 // Use 24h count as display count
+          // Keep the actual total_shills from the database
         })
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred')
@@ -62,17 +65,19 @@ export function useRealtimeToken(tokenId: string) {
           filter: `token_id=eq.${tokenId}`
         },
         async () => {
-          // Refresh 24-hour count when new shill is added
+          // Refresh weekly count when new shill is added
+          const { start: weekStart, end: weekEnd } = getCurrentWeekPeriod()
           const { count: hotShills } = await supabase
             .from('shills_new')
             .select('*', { count: 'exact', head: true })
             .eq('token_id', tokenId)
-            .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+            .gte('created_at', weekStart.toISOString())
+            .lte('created_at', weekEnd.toISOString())
 
           setToken(current => current ? {
             ...current,
             hot_shills: hotShills || 0,
-            total_shills: hotShills || 0
+            // Keep the actual total_shills from the database
           } : null)
         }
       )

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { fetchSolUsdPrice } from '@/lib/sol-pricing'
 
 export const dynamic = 'force-dynamic'
 
@@ -65,7 +66,54 @@ export async function POST() {
       }
     }
 
-    // Now test the weekly snapshot function
+    // Get current SOL price for accurate calculation
+    const solUsdPrice = await fetchSolUsdPrice()
+    console.log('Current SOL price for snapshot:', solUsdPrice)
+
+    // Calculate weekly earnings manually (bypass database function with old logic)
+    const { getCurrentWeekPeriod } = await import('@/lib/weekly-period')
+    const { start: weekStart, end: weekEnd } = getCurrentWeekPeriod()
+    
+    // Final correct logic: Only boosters from sol_payments, ads from individual tables by start_date
+    const { data: boosterPayments } = await supabaseAdmin
+      .from('sol_payments')
+      .select('amount_sol')
+      .eq('payment_type', 'booster')
+      .gte('created_at', weekStart.toISOString())
+      .lte('created_at', weekEnd.toISOString())
+    
+    const { data: bannerAds } = await supabaseAdmin
+      .from('ad_slots')
+      .select('total_paid_sol, price_sol')
+      .eq('is_approved', true)
+      .gte('start_date', weekStart.toISOString().split('T')[0])
+      .lte('start_date', weekEnd.toISOString().split('T')[0])
+    
+    const { data: featuredAds } = await supabaseAdmin
+      .from('featured_ads')
+      .select('total_paid_sol')
+      .eq('is_approved', true)
+      .gte('start_date', weekStart.toISOString().split('T')[0])
+      .lte('start_date', weekEnd.toISOString().split('T')[0])
+    
+    const boosterEarnings = boosterPayments?.reduce((sum, payment) => sum + (parseFloat(payment.amount_sol) || 0), 0) || 0
+    const bannerEarnings = bannerAds?.reduce((sum, ad) => {
+      return sum + (parseFloat(ad.total_paid_sol) || parseFloat(ad.price_sol) || 0)
+    }, 0) || 0
+    const featuredEarnings = featuredAds?.reduce((sum, ad) => sum + (parseFloat(ad.total_paid_sol) || 0), 0) || 0
+    
+    const manualWeeklyEarnings = boosterEarnings + bannerEarnings + featuredEarnings
+    const manualPotAmount = manualWeeklyEarnings * 0.4
+    
+    console.log('Manual weekly earnings calculation:', {
+      boosterEarnings,
+      bannerEarnings,
+      featuredEarnings,
+      manualWeeklyEarnings,
+      manualPotAmount
+    })
+
+    // Now test the weekly snapshot function (but it will use the old database logic)
     console.log('Calling take_weekly_snapshot() function...')
     const { data: snapshotId, error: snapshotError } = await supabaseAdmin
       .rpc('take_weekly_snapshot')
@@ -83,6 +131,27 @@ export async function POST() {
 
     console.log('Snapshot created with ID:', snapshotId)
 
+    // Update snapshot with correct manual calculations
+    try {
+      const { error: updateError } = await supabaseAdmin
+        .from('pot_snapshots')
+        .update({ 
+          sol_usd_price: solUsdPrice,
+          pot_usd: manualPotAmount * solUsdPrice,
+          total_amount_sol: manualPotAmount,
+          weekly_earnings_sol: manualWeeklyEarnings
+        })
+        .eq('id', snapshotId)
+      
+      if (updateError) {
+        console.error('Error updating snapshot with correct values:', updateError)
+      } else {
+        console.log('Updated snapshot with correct manual calculations')
+      }
+    } catch (error) {
+      console.error('Error updating snapshot:', error)
+    }
+
     // Fetch the created snapshot
     const { data: snapshot, error: fetchError } = await supabaseAdmin
       .from('pot_snapshots')
@@ -94,7 +163,52 @@ export async function POST() {
       console.error('Error fetching snapshot:', fetchError)
     }
 
-    // Fetch the winners
+    // Update winners with correct prize amounts based on manual pot calculation
+    try {
+      const { data: winnersToUpdate, error: fetchWinnersError } = await supabaseAdmin
+        .from('pot_snapshot_winners')
+        .select('id, position')
+        .eq('snapshot_id', snapshotId)
+
+      if (!fetchWinnersError && winnersToUpdate) {
+        for (const winner of winnersToUpdate) {
+          const position = winner.position
+          let percentage = 0
+          
+          // Calculate correct percentage based on position
+          switch (position) {
+            case 1: percentage = 0.30; break  // 30%
+            case 2: percentage = 0.20; break  // 20%
+            case 3: percentage = 0.15; break  // 15%
+            case 4: percentage = 0.10; break  // 10%
+            case 5: percentage = 0.08; break  // 8%
+            case 6: percentage = 0.06; break  // 6%
+            case 7: percentage = 0.04; break  // 4%
+            case 8: percentage = 0.03; break  // 3%
+            case 9: percentage = 0.02; break  // 2%
+            case 10: percentage = 0.02; break // 2%
+            default: percentage = 0
+          }
+          
+          const correctPrizeSol = manualPotAmount * percentage
+          const correctPrizeUsd = correctPrizeSol * solUsdPrice
+          
+          await supabaseAdmin
+            .from('pot_snapshot_winners')
+            .update({
+              projected_prize_sol: correctPrizeSol,
+              projected_prize_usd: correctPrizeUsd,
+              prize_percentage: percentage * 100
+            })
+            .eq('id', winner.id)
+        }
+        console.log('Updated winners with correct prize amounts')
+      }
+    } catch (error) {
+      console.error('Error updating winners:', error)
+    }
+
+    // Fetch the updated winners
     const { data: winners, error: winnersError } = await supabaseAdmin
       .from('pot_snapshot_winners')
       .select(`
@@ -108,7 +222,7 @@ export async function POST() {
       console.error('Error fetching winners:', winnersError)
     }
 
-    console.log('Snapshot winners:', winners)
+    console.log('Updated snapshot winners:', winners)
 
     return NextResponse.json({
       success: true,
@@ -117,6 +231,20 @@ export async function POST() {
         snapshotId,
         snapshot,
         winners: winners || [],
+        solUsdPrice,
+        manualCalculation: {
+          boosterEarnings,
+          bannerEarnings,
+          featuredEarnings,
+          weeklyEarnings: manualWeeklyEarnings,
+          potAmount: manualPotAmount,
+          note: "This is the correct calculation using proper timing logic"
+        },
+        databaseCalculation: {
+          weeklyEarnings: snapshot?.weekly_earnings_sol || 0,
+          potAmount: snapshot?.total_amount_sol || 0,
+          note: "This is from the database function (may use old logic)"
+        },
         testData: {
           totalUsers: users?.length || 0,
           usersWithWeeklyShills: usersWithWeeklyShills.length,
@@ -130,5 +258,63 @@ export async function POST() {
     return NextResponse.json({
       error: error instanceof Error ? error.message : 'Internal Server Error'
     }, { status: 500 })
+  }
+}
+
+async function getPotAmountUsd(solUsdPrice: number): Promise<number> {
+  try {
+    // Use the same correct timing logic as the main pot API
+    const { getCurrentWeekPeriod } = await import('@/lib/weekly-period')
+    const { start: weekStart, end: weekEnd } = getCurrentWeekPeriod()
+    
+    // 1. Calculate booster earnings from sol_payments (by creation date)
+    const { data: boosterPayments } = await supabaseAdmin
+      .from('sol_payments')
+      .select('amount_sol')
+      .eq('payment_type', 'booster')
+      .gte('created_at', weekStart.toISOString())
+      .lte('created_at', weekEnd.toISOString())
+    
+    const boosterEarnings = boosterPayments?.reduce((sum, payment) => {
+      return sum + (parseFloat(payment.amount_sol) || 0)
+    }, 0) || 0
+    
+    // 2. Calculate banner ad earnings from ad_slots table (by start_date, ignore sol_payments)
+    const { data: bannerAds } = await supabaseAdmin
+      .from('ad_slots')
+      .select('total_paid_sol, price_sol')
+      .eq('is_approved', true)
+      .gte('start_date', weekStart.toISOString().split('T')[0])
+      .lte('start_date', weekEnd.toISOString().split('T')[0])
+    
+    // 3. Calculate featured ad earnings from featured_ads table (by start_date, ignore sol_payments)
+    const { data: featuredAds } = await supabaseAdmin
+      .from('featured_ads')
+      .select('total_paid_sol')
+      .eq('is_approved', true)
+      .gte('start_date', weekStart.toISOString().split('T')[0])
+      .lte('start_date', weekEnd.toISOString().split('T')[0])
+    
+    const bannerEarnings = bannerAds?.reduce((sum, ad) => {
+      return sum + (parseFloat(ad.total_paid_sol) || parseFloat(ad.price_sol) || 0)
+    }, 0) || 0
+    const featuredEarnings = featuredAds?.reduce((sum, ad) => sum + (parseFloat(ad.total_paid_sol) || 0), 0) || 0
+    
+    const weeklyEarnings = boosterEarnings + bannerEarnings + featuredEarnings
+    const potAmountSol = weeklyEarnings * 0.4 // 40% of weekly earnings
+    
+    console.log('Weekly snapshot pot calculation:', {
+      boosterEarnings,
+      bannerEarnings, 
+      featuredEarnings,
+      weeklyEarnings,
+      potAmountSol,
+      potAmountUsd: potAmountSol * solUsdPrice
+    })
+    
+    return potAmountSol * solUsdPrice
+  } catch (error) {
+    console.error('Error calculating pot amount USD:', error)
+    return 0
   }
 }

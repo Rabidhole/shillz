@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { fetchSolUsdPrice } from '@/lib/sol-pricing'
+import { getCurrentWeekPeriod } from '@/lib/weekly-period'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,69 +40,63 @@ export async function GET() {
     let weeklyEarnings = 0
     let potAmount = 0
 
-    // Try to get weekly earnings from database function, fall back to manual calculation
-    try {
-      const { data: weeklyData, error: earningsError } = await supabaseAdmin
-        .rpc('get_weekly_sol_earnings')
-
-      if (earningsError) {
-        console.log('Database function not available, calculating manually:', earningsError.message)
-        throw earningsError
+    // Always use manual calculation (database function uses old logic)
+    const { start: weekStart, end: weekEnd } = getCurrentWeekPeriod()
+    console.log('Current week period:', {
+      start: weekStart.toISOString(),
+      end: weekEnd.toISOString()
+    })
+    
+    // Final correct approach: 
+    // - Boosters: Only count from sol_payments with payment_type='booster' (by creation date)
+    // - Banner ads: Count from ad_slots table by start_date (ignore sol_payments banner_ad entries)
+    // - Featured ads: Count from featured_ads table by start_date (ignore sol_payments featured_ad entries)
+    
+    // 1. Calculate booster earnings from sol_payments (ONLY boosters, by creation date)
+    const { data: boosterPayments } = await supabaseAdmin
+      .from('sol_payments')
+      .select('amount_sol')
+      .eq('payment_type', 'booster')
+      .gte('created_at', weekStart.toISOString())
+      .lte('created_at', weekEnd.toISOString())
+    
+    const boosterEarnings = boosterPayments?.reduce((sum, payment) => {
+      return sum + (parseFloat(payment.amount_sol) || 0)
+    }, 0) || 0
+    
+    // 2. Calculate banner ad earnings from ad_slots table (by start_date only, ignore sol_payments)
+    const { data: bannerAds } = await supabaseAdmin
+      .from('ad_slots')
+      .select('total_paid_sol, price_sol, start_date')
+      .eq('is_approved', true) // Only count approved ads
+      .gte('start_date', weekStart.toISOString().split('T')[0])
+      .lte('start_date', weekEnd.toISOString().split('T')[0])
+    
+    // 3. Calculate featured ad earnings from featured_ads table (by start_date only, ignore sol_payments)
+    const { data: featuredAds } = await supabaseAdmin
+      .from('featured_ads')
+      .select('total_paid_sol, start_date')
+      .eq('is_approved', true) // Only count approved ads
+      .gte('start_date', weekStart.toISOString().split('T')[0])
+      .lte('start_date', weekEnd.toISOString().split('T')[0])
+    
+    const bannerEarnings = bannerAds?.reduce((sum, ad) => {
+      return sum + (parseFloat(ad.total_paid_sol) || parseFloat(ad.price_sol) || 0)
+    }, 0) || 0
+    const featuredEarnings = featuredAds?.reduce((sum, ad) => sum + (parseFloat(ad.total_paid_sol) || 0), 0) || 0
+    
+    weeklyEarnings = boosterEarnings + bannerEarnings + featuredEarnings
+    
+    console.log('Correct calculation by start_date:', {
+      boosterEarnings: boosterEarnings,
+      bannerEarnings,
+      featuredEarnings,
+      totalEarnings: weeklyEarnings,
+      weekPeriod: {
+        start: weekStart.toISOString().split('T')[0],
+        end: weekEnd.toISOString().split('T')[0]
       }
-      
-      weeklyEarnings = weeklyData || 0
-    } catch (error) {
-      console.log('Falling back to manual weekly earnings calculation')
-      
-      // Manual calculation: try sol_payments first, then fallback to individual tables
-      const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-      
-      // Try sol_payments table
-      const { data: payments, error: paymentsError } = await supabaseAdmin
-        .from('sol_payments')
-        .select('amount_sol')
-        .gte('created_at', oneWeekAgo)
-
-      if (paymentsError) {
-        console.log('sol_payments table not available, calculating from individual tables')
-        
-        // Calculate from featured_ads
-        const { data: featuredAds } = await supabaseAdmin
-          .from('featured_ads')
-          .select('total_paid_sol, created_at')
-          .gte('created_at', oneWeekAgo)
-        
-        // Calculate from user_boosters + booster_packs
-        const { data: userBoosters } = await supabaseAdmin
-          .from('user_boosters')
-          .select('purchased_at, booster_pack_id')
-          .gte('purchased_at', oneWeekAgo)
-        
-        const { data: boosterPacks } = await supabaseAdmin
-          .from('booster_packs')
-          .select('id, price_sol')
-        
-        const featuredEarnings = featuredAds?.reduce((sum, ad) => sum + (parseFloat(ad.total_paid_sol) || 0), 0) || 0
-        const boosterEarnings = userBoosters?.reduce((sum, ub) => {
-          const pack = boosterPacks?.find(bp => bp.id === ub.booster_pack_id)
-          return sum + (parseFloat(pack?.price_sol) || 0)
-        }, 0) || 0
-        
-        weeklyEarnings = featuredEarnings + boosterEarnings
-        
-        console.log('Manual calculation from tables:', {
-          featuredEarnings,
-          boosterEarnings,
-          totalEarnings: weeklyEarnings
-        })
-      } else {
-        weeklyEarnings = payments?.reduce((sum, payment) => {
-          return sum + (parseFloat(payment.amount_sol) || 0)
-        }, 0) || 0
-        
-        console.log('Earnings from sol_payments table:', weeklyEarnings)
-      }
-    }
+    })
 
     // Calculate pot amount (40% of weekly earnings)
     potAmount = weeklyEarnings * 0.4
@@ -112,24 +107,15 @@ export async function GET() {
       percentage: 40
     })
 
-    // Try to get pot amount from database function, but we already calculated it manually
-    try {
-      const { data: dbPotAmount, error: potError } = await supabaseAdmin
-        .rpc('get_community_pot_amount')
-      
-      if (!potError && dbPotAmount !== null) {
-        potAmount = dbPotAmount
-        console.log('Using database pot amount:', potAmount)
-      }
-    } catch (error) {
-      console.log('Database pot function not available, using manual calculation')
-    }
+    // Use manual calculation only (database function uses old logic)
+    console.log('Using manual calculation only')
 
-    // Get recent SOL payments for additional context
+    // Get recent SOL payments for additional context (current week only)
     const { data: recentPayments, error: paymentsError } = await supabaseAdmin
       .from('sol_payments')
       .select('amount_sol, amount_usd, created_at, sol_usd_price')
-      .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+      .gte('created_at', weekStart.toISOString())
+      .lte('created_at', weekEnd.toISOString())
       .order('created_at', { ascending: false })
       .limit(10)
 
@@ -137,10 +123,10 @@ export async function GET() {
       console.error('Error getting recent payments:', paymentsError)
     }
 
-    // Get current SOL price from live API
+    // Get current SOL price from live API (for display purposes only)
     const currentSolPrice = await fetchSolUsdPrice()
     
-    // Calculate USD values
+    // Calculate USD values for display
     const potAmountUsd = potAmount * currentSolPrice
     const goalUsd = potAmountUsd // Dynamic goal = pot amount
     const progress = 1.0 // Always 100% since pot is exactly 40% of earnings
@@ -152,10 +138,11 @@ export async function GET() {
       weeklyEarnings
     })
 
-    // Return in the same format as before for backward compatibility
+    // Return pot amount in SOL as the primary value
     return NextResponse.json({
       pot: {
-        usd: potAmountUsd,
+        sol: potAmount, // Primary value: SOL amount
+        usd: potAmountUsd, // Secondary value: USD equivalent
         goalUsd,
         progress,
       },

@@ -241,7 +241,7 @@ export function TokenShillButton({ tokenId, currentShills, userId = 'anonymous',
         )}
         
         <div className="text-sm text-gray-400">
-          Total Shills
+          Weekly Shills
         </div>
         {hasActiveBoosters && (
           <div className="text-xs text-purple-400 mt-1">

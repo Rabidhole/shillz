@@ -52,21 +52,15 @@ export function BoosterShop({ userId = 'anonymous' }: BoosterShopProps) {
   const normalizedUser = normalizeWalletAddress(effectiveUserId)
   const { activeBoosters, totalMultiplier, nextExpiring } = useUserBoosters(normalizedUser)
 
-  // Debug logging
-  console.log('BoosterShop Debug:', {
-    isConnected,
-    address,
-    userId,
-    effectiveUserId,
-    normalizedUser,
-    walletError
-  })
   const [loadingBoosterId, setLoadingBoosterId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [showSuccess, setShowSuccess] = useState<{ open: boolean; packId?: string }>(() => ({ open: false }))
   const [showFailure, setShowFailure] = useState<{ open: boolean; message?: string }>(() => ({ open: false }))
   const [showWalletPrompt, setShowWalletPrompt] = useState<{ open: boolean }>(() => ({ open: false }))
   const [showSolPayment, setShowSolPayment] = useState<{ open: boolean; packId?: string; amount?: number }>(() => ({ open: false }))
+  
+  // Debug modal state changes
+  console.log('🔍 SOL Payment Modal State:', showSolPayment)
 
   const hasActiveBooster = activeBoosters.length > 0
   const isOnSolana = chainId === 101 || chainId === 102 || chainId === 103 || !chainId
@@ -82,13 +76,6 @@ export function BoosterShop({ userId = 'anonymous' }: BoosterShopProps) {
     ? (process.env.NEXT_PUBLIC_TEST_SOL_RECIPIENT_ADDRESS || 'YourTestnetSolanaAddressHere')
     : (process.env.NEXT_PUBLIC_SOL_RECIPIENT_ADDRESS || 'YourMainnetSolanaAddressHere')
   
-  // Debug logging
-  console.log('SOL Payment Debug:', {
-    isTestnet,
-    testEnvVar: process.env.NEXT_PUBLIC_TEST_SOL_RECIPIENT_ADDRESS,
-    mainEnvVar: process.env.NEXT_PUBLIC_SOL_RECIPIENT_ADDRESS,
-    finalAddress: SOL_RECIPIENT_ADDRESS
-  })
   // const SOL_PRICE_USD = 100 // This should be fetched from a price API
 //check
   const handlePurchase = async (packId: string) => {
@@ -115,28 +102,30 @@ export function BoosterShop({ userId = 'anonymous' }: BoosterShopProps) {
     setError(null)
 
     try {
-      console.log('Attempting to purchase booster:', {
-        packId,
-        walletAddress: address,
-        testMode: isTestMode
-      })
-
+      console.log('🚀 STARTING BOOSTER PURCHASE')
+      console.log('🔍 Looking for booster with packId:', packId)
+      
       // Always use SOL payment flow (even in test mode, but on testnet)
       const booster = BOOSTERS.find(b => b.id === packId)
+      console.log('🔍 Booster found:', booster)
+      
       if (!booster) {
         throw new Error('Booster not found')
       }
       
       // Use predefined SOL amount
       const solAmount = booster.priceSol
+      console.log('💰 SOL amount:', solAmount)
       
+      console.log('🔍 Opening SOL payment modal...')
       setShowSolPayment({ 
         open: true, 
         packId: packId, 
         amount: solAmount 
       })
+      console.log('✅ SOL payment modal state set')
     } catch (error) {
-      console.error('Error purchasing booster:', error)
+      console.error('❌ Error purchasing booster:', error)
       setError(error instanceof Error ? error.message : 'Failed to purchase booster. Please try again.')
     } finally {
       setLoadingBoosterId(null)
@@ -248,7 +237,6 @@ export function BoosterShop({ userId = 'anonymous' }: BoosterShopProps) {
                 className="bg-green-600 hover:bg-green-700"
                 onClick={() => {
                   setShowSuccess({ open: false })
-                  window.location.reload()
                 }}
               >
                 OK

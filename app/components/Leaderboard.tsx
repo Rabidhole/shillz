@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '../../lib/utils'
 import { type Token } from '../types/database'
 import { FeaturedAds } from './FeaturedAds'
+import { getCurrentWeekPeriod } from '@/lib/weekly-period'
 
 interface LeaderboardProps {
   search: string
@@ -49,14 +50,17 @@ export function Leaderboard({ search }: LeaderboardProps) {
       if (tokensError) throw tokensError
       if (!tokensData) return
 
-      // Calculate 24-hour shill counts for all tokens
+      // Calculate weekly shill counts for all tokens (using fixed weekly period)
+      const { start: weekStart, end: weekEnd } = getCurrentWeekPeriod()
+      
       const tokenStats = await Promise.all(
         tokensData.map(async (token) => {
           const { count } = await supabase
             .from('shills_new')
             .select('*', { count: 'exact', head: true })
             .eq('token_id', token.id)
-            .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+            .gte('created_at', weekStart.toISOString())
+            .lte('created_at', weekEnd.toISOString())
 
           return {
             ...token,
@@ -65,7 +69,7 @@ export function Leaderboard({ search }: LeaderboardProps) {
         })
       )
 
-      // Sort by 24-hour shill count and add ranks
+      // Sort by 7-day shill count and add ranks
       const rankedTokens = tokenStats
         .sort((a, b) => b.hot_shills - a.hot_shills)
         .map((token, index) => ({

@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { Database } from '@/app/types/database'
 import { fetchSolUsdPrice } from '@/lib/sol-pricing'
-import { TelegramNotifications } from '../../lib/telegram-notifications'
+import { TelegramNotifications } from '@/app/lib/telegram-notifications'
 
 export const dynamic = 'force-dynamic'
 

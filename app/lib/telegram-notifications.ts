@@ -4,13 +4,20 @@ export class TelegramNotifications {
   private static chatId = process.env.TELEGRAM_ADMIN_CHAT_ID
 
   static async sendMessage(message: string) {
+    console.log('🔔 Attempting to send Telegram notification...')
+    console.log('Bot token exists:', !!this.botToken)
+    console.log('Chat ID exists:', !!this.chatId)
+    console.log('Bot token value (first 10 chars):', this.botToken ? this.botToken.substring(0, 10) + '...' : 'undefined')
+    console.log('Chat ID value:', this.chatId)
+    
     if (!this.botToken || !this.chatId) {
-      console.log('Telegram notifications not configured')
+      console.log('❌ Telegram notifications not configured - missing bot token or chat ID')
       return
     }
 
     try {
-      await fetch(`https://api.telegram.org/bot${this.botToken}/sendMessage`, {
+      console.log('📤 Sending message to Telegram...')
+      const response = await fetch(`https://api.telegram.org/bot${this.botToken}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -19,8 +26,17 @@ export class TelegramNotifications {
           parse_mode: 'Markdown'
         })
       })
+      
+      const result = await response.json()
+      console.log('📨 Telegram API response:', result)
+      
+      if (!result.ok) {
+        console.error('❌ Telegram API error:', result.description)
+      } else {
+        console.log('✅ Telegram notification sent successfully!')
+      }
     } catch (error) {
-      console.error('Failed to send Telegram notification:', error)
+      console.error('❌ Failed to send Telegram notification:', error)
     }
   }
 

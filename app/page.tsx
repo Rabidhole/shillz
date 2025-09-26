@@ -13,7 +13,7 @@ import { useTelegramUser } from './hooks/useTelegram'
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showExplainer, setShowExplainer] = useState(false)
-  const [potData, setPotData] = useState<{ usd: number; meta: { solUsdPrice: number } } | null>(null)
+  const [potData, setPotData] = useState<{ sol: number; usd: number; meta: { solUsdPrice: number } } | null>(null)
   const { address } = useReownWallet()
   const { username: tgUsername } = useTelegramUser()
   const normalizeWalletAddress = (input?: string) => {
@@ -84,7 +84,8 @@ export default function Home() {
         {/* Prize Distribution */}
         <div className="max-w-2xl mx-auto mb-6">
           <PotDistribution 
-            potAmountUsd={potData?.usd || 0} 
+            potAmountSol={potData?.sol || 0} 
+            potAmountUsd={potData?.usd || 0}
             solUsdPrice={potData?.meta?.solUsdPrice || 200}
           />
         </div>
