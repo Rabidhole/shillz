@@ -7,7 +7,7 @@ import { cn } from '../../lib/utils'
 interface SplashScreenProps {
   onComplete: () => void
 }
-
+//
 export function SplashScreen({ onComplete }: SplashScreenProps) {
   const [isVisible, setIsVisible] = useState(true)
   const [isAnimating, setIsAnimating] = useState(false)
